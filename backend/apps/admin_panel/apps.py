@@ -1,0 +1,9 @@
+"""管理面板应用配置."""
+
+from django.apps import AppConfig
+
+
+class AdminPanelConfig(AppConfig):
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "apps.admin_panel"
+    verbose_name = "管理面板"

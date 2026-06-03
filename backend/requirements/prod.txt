@@ -1,0 +1,8 @@
+-r base.txt
+
+# WSGI 服务器
+gunicorn>=23.0,<24.0
+uvicorn>=0.32,<1.0
+
+# 安全
+django-sslserver>=0.22,<1.0
