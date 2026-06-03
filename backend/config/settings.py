@@ -7,6 +7,7 @@ Django settings for SwapCampus project.
 """
 
 import os
+import sys
 from datetime import timedelta
 from pathlib import Path
 
@@ -92,9 +93,18 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-# ── 数据库（MySQL 8.0）────────────────────────────────────
+# ── 数据库 ─────────────────────────────────────────────────
+# 开发环境默认使用 SQLite（零配置，MySQL 仅生产/CI 使用）
 DATABASES = {
     "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
+
+# MySQL 配置（生产环境时设置 DJANGO_ENV=prod，或在 .env 中设置 DB_ENGINE=mysql）
+if config("DB_ENGINE", default="sqlite") == "mysql":
+    DATABASES["default"] = {
         "ENGINE": "django.db.backends.mysql",
         "NAME": config("DB_NAME", default="swapcampus"),
         "USER": config("DB_USER", default="swapcampus"),
@@ -105,7 +115,13 @@ DATABASES = {
             "charset": "utf8mb4",
         },
     }
-}
+
+# ── 测试环境：自动切换为 SQLite 内存数据库 ─────────────────
+if "pytest" in sys.modules or "test" in sys.argv:
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": ":memory:",
+    }
 
 # ── 自定义用户模型 ────────────────────────────────────────
 AUTH_USER_MODEL = "users.User"
