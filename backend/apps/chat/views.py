@@ -50,6 +50,12 @@ class ConversationViewSet(
             return ConversationDetailSerializer
         return ConversationListSerializer
 
+    def retrieve(self, request, *args, **kwargs):
+        """包装统一格式的会话详情."""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(build_success_response(serializer.data))
+
     def get_queryset(self) -> QuerySet:
         """仅返回当前用户参与的会话，预加载参与者和最后消息."""
         user = self.request.user
@@ -64,6 +70,19 @@ class ConversationViewSet(
                 )
             )
             .distinct()
+        )
+
+    def create(self, request, *args, **kwargs):
+        """创建会话并返回统一格式."""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        output_serializer = ConversationListSerializer(
+            serializer.instance, context={"request": request}
+        )
+        return Response(
+            build_success_response(output_serializer.data),
+            status=status.HTTP_201_CREATED,
         )
 
     def perform_create(self, serializer):

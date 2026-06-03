@@ -456,17 +456,32 @@ cd frontend && npm run test:unit
 ### 前置要求
 - Python 3.12+
 - Node.js 18+
-- MySQL 8.0+（需提前安装并启动服务）
-- Redis（Channels 依赖，Docker 部署时自动提供）
+- Redis（Channels 依赖，开发可跳过，Docker 部署时自动提供）
+- MySQL 8.0+（可选：生产/CI 使用；开发默认使用 SQLite 零配置启动）
 
-### 数据库初始化（每位成员首次克隆后执行一次）
+### 数据库
+
+**开发环境**：默认使用 SQLite（`backend/db.sqlite3`），零配置启动，无需安装 MySQL。
+
+**切换到 MySQL**（生产/CI）：
+```bash
+# .env 中添加
+DB_ENGINE=mysql
+DB_NAME=swapcampus
+DB_USER=swapcampus
+DB_PASSWORD=your_password_here
+DB_HOST=127.0.0.1
+DB_PORT=3306
+```
 ```sql
--- 在 MySQL 中执行（用 root 或管理员账号登录）
+-- 仅在需要 MySQL 时执行一次
 CREATE DATABASE swapcampus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'swapcampus'@'localhost' IDENTIFIED BY 'your_password_here';
 GRANT ALL PRIVILEGES ON swapcampus.* TO 'swapcampus'@'localhost';
 FLUSH PRIVILEGES;
 ```
+
+> 注意：`mysqlclient` 在 macOS + MySQL 9.x 下存在链接兼容性问题，项目使用纯 Python 的 **PyMySQL** 作为 MySQL 驱动（`manage.py` 中自动注册 `pymysql.install_as_MySQLdb()`）。
 
 ### 本地开发
 ```bash
@@ -476,12 +491,12 @@ cd SwapCampus
 
 # 2. 后端
 cd backend
-cp .env.example .env   # 复制环境变量模版，填写你的 MySQL 密码
+cp .env.example .env                 # 复制环境变量模版（默认 SQLite，无需修改）
 python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+source venv/bin/activate             # Windows: venv\Scripts\activate
 pip install -r requirements/dev.txt
 python manage.py migrate
-python manage.py runserver   # 开发用 WSGI；如需 WebSocket 功能使用 Daphne/uvicorn
+python manage.py runserver           # 开发用 WSGI；如需 WebSocket 功能使用 Daphne/uvicorn
 
 # 3. 前端
 cd frontend
@@ -489,7 +504,7 @@ npm install
 npm run dev
 
 # 4. 运行测试
-cd backend && pytest --cov=apps --cov-report=html   # 后端测试
+cd backend && pytest --cov=apps --cov-report=html   # 30 个测试，目标覆盖率 ≥ 80%
 cd frontend && npm run test:unit                     # 前端测试
 
 # 5. 代码质量

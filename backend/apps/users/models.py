@@ -4,8 +4,9 @@
 - CreditRecord：信用积分变更记录
 """
 
+import uuid
+
 from django.contrib.auth.models import AbstractUser
-from django.core.validators import RegexValidator
 from django.db import models
 
 from core.models import BaseModel
@@ -17,6 +18,14 @@ class User(AbstractUser):
     在 Django AbstractUser 基础上扩展校园业务字段。
     使用 username 存储学号（全校唯一标识），email 可选。
     """
+
+    # UUID 主键（覆盖 AbstractUser 默认的自增整数 ID）
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False,
+        verbose_name="主键",
+    )
 
     # ── 基础字段覆盖 ──────────────────────────────────────
     # username → 学号（北京林业大学学号，8 位数字）

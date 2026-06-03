@@ -129,7 +129,7 @@ class TestConversation:
 class TestMessage:
     def test_send_message(self, auth_client_a, conversation):
         """发送消息应成功."""
-        url = reverse("conversation-send-message", kwargs={"id": conversation.id})
+        url = reverse("conversation-list-messages", kwargs={"id": conversation.id})
         response = auth_client_a.post(
             url,
             {"content": "你好，请问这个还在吗？"},
