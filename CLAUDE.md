@@ -36,57 +36,69 @@ SwapCampus 是北京林业大学校园闲置物品交易平台，为《软件工
 ```
 SwapCampus/
 ├── backend/                        # Django 5 后端
+│   ├── manage.py                   # Django 命令行入口
+│   ├── pyproject.toml              # Ruff Lint + pytest + Coverage 配置
 │   ├── config/                     # Django 项目配置
-│   │   ├── settings.py             # 配置（分环境：dev/prod）
-│   │   ├── urls.py                 # 根路由
-│   │   ├── asgi.py                 # ASGI（Channels）
+│   │   ├── settings.py             # 配置（分环境：dev/prod，通过 DJANGO_ENV 切换）
+│   │   ├── urls.py                 # 根路由 + /api/docs/（Swagger/ReDoc）
+│   │   ├── asgi.py                 # ASGI（HTTP + WebSocket 双协议）
 │   │   ├── wsgi.py                 # WSGI
-│   │   └── routing.py             # WebSocket 路由
+│   │   └── routing.py             # WebSocket 路由 → /ws/chat/<uuid>/
 │   ├── apps/                       # 业务应用（按功能模块拆分）
-│   │   ├── users/                  # M1 用户体系
-│   │   │   ├── models.py           # User, CreditRecord
-│   │   │   ├── serializers.py     # DRF Serializer
-│   │   │   ├── views.py            # ViewSet
-│   │   │   ├── urls.py             # API 路由
-│   │   │   ├── services.py         # 业务逻辑（信用分计算等）
-│   │   │   └── tests/              # 单元测试
-│   │   ├── products/               # M2 商品发布 + M3 检索
+│   │   ├── users/                  # M1 用户体系（✅ 后端A 已实现）
+│   │   │   ├── apps.py             # AppConfig
+│   │   │   ├── models.py           # User（AbstractUser 扩展）, CreditRecord
+│   │   │   ├── serializers.py     # Register, User, UserProfile, CreditRecord
+│   │   │   ├── views.py            # RegisterView, UserViewSet, JWT 包装视图
+│   │   │   ├── urls.py             # API 路由（register|login|token/refresh|me|credit-records）
+│   │   │   ├── services.py         # 信用分原子化变更（select_for_update + atomic）
+│   │   │   ├── admin.py            # Django Admin 定制（User + CreditRecord）
+│   │   │   └── tests/              # 18 个测试用例（注册/登录/个人信息/积分）
+│   │   ├── products/               # M2 商品发布 + M3 检索（后端B 待实现）
+│   │   │   ├── apps.py             # AppConfig（占位）
+│   │   │   ├── urls.py             # API 路由（占位）
 │   │   │   ├── models.py           # Product, Category, Tag, Image
 │   │   │   ├── serializers.py
 │   │   │   ├── views.py
-│   │   │   ├── urls.py
 │   │   │   ├── filters.py          # django-filter 高级筛选
 │   │   │   ├── search.py           # 全文搜索逻辑
 │   │   │   └── tests/
-│   │   ├── transactions/           # M4 交易流程
+│   │   ├── transactions/           # M4 交易流程（后端B 待实现）
+│   │   │   ├── apps.py             # AppConfig（占位）
+│   │   │   ├── urls.py             # API 路由（占位）
 │   │   │   ├── models.py           # Order, Review, FaceConfirm
 │   │   │   ├── serializers.py
 │   │   │   ├── views.py
-│   │   │   ├── urls.py
 │   │   │   ├── services.py         # 订单状态机、评价逻辑
 │   │   │   └── tests/
-│   │   ├── chat/                   # M5 站内通讯
+│   │   ├── chat/                   # M5 站内通讯（✅ 后端A 已实现）
+│   │   │   ├── apps.py             # AppConfig
 │   │   │   ├── models.py           # Conversation, Message
-│   │   │   ├── consumers.py        # Channels WebSocket Consumer
-│   │   │   ├── serializers.py
-│   │   │   ├── urls.py
-│   │   │   └── tests/
-│   │   └── admin_panel/            # M6 Django Admin 定制
+│   │   │   ├── consumers.py        # ChatConsumer（WebSocket 实时收发/已读/在线状态）
+│   │   │   ├── serializers.py     # ConversationList/Detail/Create, Message
+│   │   │   ├── views.py            # ConversationViewSet（CRUD/消息/已读）
+│   │   │   ├── urls.py             # API 路由（conversations/.../messages|read）
+│   │   │   ├── admin.py            # Django Admin 定制
+│   │   │   └── tests/              # 14 个测试用例（会话/消息/已读/权限）
+│   │   └── admin_panel/            # M6 Django Admin 定制（后端B 待实现）
+│   │       ├── apps.py             # AppConfig（占位）
+│   │       ├── urls.py             # API 路由（占位）
 │   │       ├── admin.py            # ModelAdmin 配置
 │   │       ├── actions.py          # 批量操作（审核/封禁）
 │   │       └── views.py            # 自定义管理视图（数据看板）
 │   ├── core/                       # 共享基础设施
-│   │   ├── models.py               # BaseModel（uuid, created_at, updated_at）
-│   │   ├── pagination.py           # 统一分页
-│   │   ├── permissions.py          # 自定义权限类
-│   │   ├── exceptions.py           # 统一异常处理
-│   │   └── utils.py                # 工具函数（图片压缩等）
+│   │   ├── models.py               # BaseModel（UUID pk, created_at, updated_at）
+│   │   ├── pagination.py           # StandardPagination → 统一分页响应格式
+│   │   ├── permissions.py          # IsOwnerOrReadOnly, IsOwner
+│   │   ├── exceptions.py           # unified_exception_handler → 统一错误格式
+│   │   ├── middleware.py           # JWTAuthMiddleware（WebSocket query_string JWT 鉴权）
+│   │   └── utils.py                # 图片压缩、MD5 去重、响应构建辅助
 │   ├── media/                      # 开发环境文件上传目录
-│   ├── static/                     # Django 静态文件
+│   ├── static/                     # Django 静态文件收集目录
 │   └── requirements/               # Python 依赖
-│       ├── base.txt                # 公共依赖
-│       ├── dev.txt                 # 开发环境
-│       └── prod.txt                # 生产环境
+│       ├── base.txt                # Django 5 + DRF + Channels + SimpleJWT + MinIO
+│       ├── dev.txt                 # pytest + ruff + factory-boy + django-extensions
+│       └── prod.txt                # gunicorn + uvicorn + django-sslserver
 │
 ├── frontend/                       # Vue 3 前端
 │   ├── src/
@@ -152,6 +164,7 @@ SwapCampus/
 │   ├── D-11_演示视频脚本.docx
 │   └── D-12_项目源代码仓库/
 │
+├── memory/                         # Claude Code 项目记忆
 ├── .gitignore
 ├── CLAUDE.md                       # 本文件
 └── README.md
@@ -163,7 +176,7 @@ SwapCampus/
 
 | 角色 | 成员 | 职责范围 |
 |------|------|---------|
-| 后端 A | ________ | **users + chat**（M1+M5）JWT 认证、用户 CRUD、信用积分、Django Channels WebSocket、会话管理 |
+| 后端 A | J0rthan | **users + chat**（M1+M5）JWT 认证、用户 CRUD、信用积分、Django Channels WebSocket、会话管理 |
 | 后端 B | ________ | **products + transactions + admin_panel**（M2+M3+M4+M6）商品 CRUD、搜索 API、django-filter 筛选、订单状态机、评价、Django Admin 定制、数据看板 |
 | 前端 A | ________ | **用户端核心页面** 首页商品流、搜索筛选、商品详情、聊天界面（WebSocket 对接）、商品卡片组件 |
 | 前端 B | ________ | **用户端辅助页面 + 基础设施** 登录注册、发布商品、个人主页、我的商品/订单、Axios 封装、路由、Pinia stores、公共组件 |
@@ -179,10 +192,10 @@ SwapCampus/
 ```
 main          ← 保护分支，仅通过 PR 合并
 ├── dev       ← 日常开发集成分支
-│   ├── feat/backend-users      ← 后端 A：用户模块
-│   ├── feat/backend-products   ← 后端 B：商品模块
-│   ├── feat/frontend-home      ← 前端 A：首页+搜索
-│   └── feat/frontend-profile   ← 前端 B：个人页+发布
+│   ├── feat/backend-users-chat   ← 后端 A：用户模块 + 聊天模块（M1+M5）
+│   ├── feat/backend-products     ← 后端 B：商品模块 + 交易模块 + 管理面板（M2+M3+M4+M6）
+│   ├── feat/frontend-home        ← 前端 A：首页+搜索
+│   └── feat/frontend-profile     ← 前端 B：个人页+发布
 └── release   ← D12 部署准备
 ```
 
@@ -236,9 +249,17 @@ chore: 杂项          chore: update docker-compose.yml
 
 ### 接口文档
 - DRF ViewSet 自动生成 OpenAPI 文档（drf-spectacular）
-- 前端通过 `/api/docs/` 查看 Swagger UI
+- 前端通过 `/api/docs/swagger/` 查看 Swagger UI，`/api/docs/redoc/` 查看 ReDoc
 - D4-D5 设计阶段冻结 API 契约，双方确认后不得单方面修改
 - 如需变更，先更新 API 文档，再同步修改前后端
+
+### 环境变量
+- `DJANGO_ENV`：环境切换（`dev` 默认 / `prod`）
+- `DEBUG`：开发模式开关
+- `DB_NAME/DB_USER/DB_PASSWORD/DB_HOST/DB_PORT`：MySQL 连接
+- `REDIS_URL`：Redis 连接（Channels Channel Layer）
+- `MINIO_*`：MinIO 对象存储配置
+- `USE_MINIO_STORAGE`：是否使用 MinIO 作为默认文件存储（默认 False，使用本地存储）
 
 ### 前端开发时 API Mock
 - 开发初期后端 API 不可用时，前端使用 MSW (Mock Service Worker) 或 Vite proxy mock
@@ -272,6 +293,86 @@ chore: 杂项          chore: update docker-compose.yml
 - 文件中不写"这段代码做什么"的注释；只写"为什么要这样做"的解释
 - 不使用 `console.log` 提交；前端错误用统一 error handler
 - Secret（密钥、Token、数据库密码）一律环境变量注入，不写进代码
+
+---
+
+## 后端架构决策（已实现）
+
+### 主键策略
+- 所有业务模型使用 **UUID 主键**（`core.models.BaseModel`），不在 API 中暴露自增 ID
+- UUID 由应用层生成（`uuid.uuid4`），不依赖数据库
+
+### 用户模型
+- 自定义 `User` 扩展 `AbstractUser`，`username` 存储学号（8 位数字，正则校验）
+- `credit_score` 初始 100 分，通过 `CreditRecord` 记录每次变更
+- 信用等级按分数自动计算：`excellent(≥150)` / `good(≥100)` / `fair(≥60)` / `poor(<60)`
+
+### 信用分并发安全
+- `services.add_credit_record()` 使用 `select_for_update` 行锁 + `@transaction.atomic`
+- 积分下限为 0（不会变为负数）
+
+### JWT 鉴权
+- 登录/刷新 Token 的返回格式已包装为统一 API 格式
+- WebSocket 鉴权：前端在连接 URL 的 query string 中传 `?token=<access_token>`
+- `core.middleware.JWTAuthMiddleware` 异步验证 JWT 后注入 `scope["user"]`
+
+### 会话去重
+- 两名用户之间始终复用一个 `Conversation`（创建时自动查重）
+- 同一对用户 + 不同商品不会创建重复会话
+
+### 跨应用外键
+- `chat.Conversation.product` 引用 `"products.Product"`（字符串延迟引用）
+- `users.CreditRecord.related_order` 引用 `"transactions.Order"`（字符串延迟引用）
+- 即使目标模型尚未创建，migrations 不会阻塞
+
+### 消息排序
+- 数据库层：`Message.Meta.ordering = ["created_at"]`（正序）
+- API 层：REST 接口返回倒序（最新在前），WebSocket 推送按实际时间
+
+---
+
+## API 路由汇总（后端A 已实现）
+
+### 用户体系（`/api/users/`）
+
+| 方法 | 路径 | 说明 | 鉴权 |
+|------|------|------|------|
+| POST | `/register/` | 注册新用户 | 无 |
+| POST | `/login/` | 登录获取 JWT | 无 |
+| POST | `/token/refresh/` | 刷新 Access Token | 无 |
+| GET | `/` | 用户列表（公开信息） | 可选 |
+| GET | `/{id}/` | 用户详情（公开信息） | 可选 |
+| GET | `/me/` | 当前用户完整信息 | JWT |
+| PATCH | `/me/` | 更新当前用户信息 | JWT |
+| GET | `/{id}/credit-records/` | 积分变更记录 | JWT |
+
+### 站内通讯（`/api/chat/`）
+
+| 方法 | 路径 | 说明 | 鉴权 |
+|------|------|------|------|
+| GET | `/conversations/` | 我的会话列表 | JWT |
+| POST | `/conversations/` | 创建/复用会话 | JWT |
+| GET | `/conversations/{id}/` | 会话详情+最近消息 | JWT |
+| GET | `/conversations/{id}/messages/` | 分页历史消息 | JWT |
+| POST | `/conversations/{id}/messages/` | 发送消息（REST） | JWT |
+| POST | `/conversations/{id}/read/` | 标记已读 | JWT |
+
+### WebSocket
+
+| 路径 | 说明 | 鉴权 |
+|------|------|------|
+| `ws://host/ws/chat/{uuid}/?token=<jwt>` | 实时聊天 | query string JWT |
+
+**WebSocket 消息类型：**
+
+| type | 方向 | 说明 |
+|------|------|------|
+| `chat_message` | 客户端→服务端 | 发送消息 |
+| `new_message` | 服务端→客户端 | 广播新消息 |
+| `mark_read` | 客户端→服务端 | 标记已读 |
+| `messages_read` | 服务端→客户端 | 通知已读 |
+| `typing` | 双向 | 输入状态 |
+| `user_status` | 服务端→客户端 | 在线/离线状态 |
 
 ---
 
@@ -380,14 +481,22 @@ python -m venv venv
 source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements/dev.txt
 python manage.py migrate
-python manage.py runserver
+python manage.py runserver   # 开发用 WSGI；如需 WebSocket 功能使用 Daphne/uvicorn
 
 # 3. 前端
 cd frontend
 npm install
 npm run dev
 
-# 4. 完整部署（Docker）
+# 4. 运行测试
+cd backend && pytest --cov=apps --cov-report=html   # 后端测试
+cd frontend && npm run test:unit                     # 前端测试
+
+# 5. 代码质量
+ruff check .      # Lint 检查
+ruff format .     # 自动格式化
+
+# 6. 完整部署（Docker）
 docker compose -f docker/docker-compose.yml up -d
 ```
 
