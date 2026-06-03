@@ -1,9 +1,5 @@
-"""管理面板 API 路由."""
-
-from django.urls import path
-
-from apps.admin_panel.views import DashboardView
+"""管理面板 API 路由（占位，后端 B 实现）."""
 
 urlpatterns = [
-    path("dashboard/", DashboardView.as_view(), name="admin-dashboard"),
+    # TODO: 由后端 B 实现
 ]

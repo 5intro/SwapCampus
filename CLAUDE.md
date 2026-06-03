@@ -54,25 +54,23 @@ SwapCampus/
 │   │   │   ├── services.py         # 信用分原子化变更（select_for_update + atomic）
 │   │   │   ├── admin.py            # Django Admin 定制（User + CreditRecord）
 │   │   │   └── tests/              # 18 个测试用例（注册/登录/个人信息/积分）
-│   │   ├── products/               # M2 商品发布 + M3 检索（✅ 后端B 已实现）
-│   │   │   ├── apps.py             # AppConfig
-│   │   │   ├── urls.py             # API 路由
-│   │   │   ├── models.py           # Product, Category, Tag, ProductImage
-│   │   │   ├── serializers.py     # ProductList/Detail/Create/Update, Category, Tag, Image
-│   │   │   ├── views.py            # ProductViewSet, CategoryViewSet, TagViewSet
-│   │   │   ├── services.py         # 商品状态变更
-│   │   │   ├── filters.py          # django-filter 高级筛选（分类/价格/成色/排序）
-│   │   │   ├── admin.py            # ProductAdmin, CategoryAdmin, TagAdmin
-│   │   │   └── tests/              # 26 个测试用例（CRUD/筛选/搜索/状态转换）
-│   │   ├── transactions/           # M4 交易流程（✅ 后端B 已实现）
-│   │   │   ├── apps.py             # AppConfig
-│   │   │   ├── urls.py             # API 路由
+│   │   ├── products/               # M2 商品发布 + M3 检索（后端B 待实现）
+│   │   │   ├── apps.py             # AppConfig（占位）
+│   │   │   ├── urls.py             # API 路由（占位）
+│   │   │   ├── models.py           # Product, Category, Tag, Image
+│   │   │   ├── serializers.py
+│   │   │   ├── views.py
+│   │   │   ├── filters.py          # django-filter 高级筛选
+│   │   │   ├── search.py           # 全文搜索逻辑
+│   │   │   └── tests/
+│   │   ├── transactions/           # M4 交易流程（后端B 待实现）
+│   │   │   ├── apps.py             # AppConfig（占位）
+│   │   │   ├── urls.py             # API 路由（占位）
 │   │   │   ├── models.py           # Order, Review, FaceConfirm
-│   │   │   ├── serializers.py     # OrderList/Detail/Create, Review, FaceConfirm
-│   │   │   ├── views.py            # OrderViewSet, ReviewViewSet
-│   │   │   ├── services.py         # 订单状态机（6状态 8+转换）、评价逻辑、面交确认
-│   │   │   ├── admin.py            # OrderAdmin, ReviewAdmin, FaceConfirmAdmin
-│   │   │   └── tests/              # 25 个测试用例（订单/状态机/面交/评价/积分联动）
+│   │   │   ├── serializers.py
+│   │   │   ├── views.py
+│   │   │   ├── services.py         # 订单状态机、评价逻辑
+│   │   │   └── tests/
 │   │   ├── chat/                   # M5 站内通讯（✅ 后端A 已实现）
 │   │   │   ├── apps.py             # AppConfig
 │   │   │   ├── models.py           # Conversation, Message
@@ -82,13 +80,12 @@ SwapCampus/
 │   │   │   ├── urls.py             # API 路由（conversations/.../messages|read）
 │   │   │   ├── admin.py            # Django Admin 定制
 │   │   │   └── tests/              # 14 个测试用例（会话/消息/已读/权限）
-│   │   └── admin_panel/            # M6 Django Admin 定制（✅ 后端B 已实现）
-│   │       ├── apps.py             # AppConfig
-│   │       ├── urls.py             # Dashboard API 路由
-│   │       ├── admin.py            # 跨模块 Admin 增强（Product/User/Order 批量操作 + CreditRecordInline）
-│   │       ├── actions.py          # 批量操作实现（approve_products/hide_products/ban_users/cancel_orders_admin）
-│   │       ├── views.py            # DashboardView（total_users/active_products/pending_orders/completed_orders/recent_registrations）
-│   │       └── tests/              # 4 个测试用例（Dashboard/批量操作）
+│   │   └── admin_panel/            # M6 Django Admin 定制（后端B 待实现）
+│   │       ├── apps.py             # AppConfig（占位）
+│   │       ├── urls.py             # API 路由（占位）
+│   │       ├── admin.py            # ModelAdmin 配置
+│   │       ├── actions.py          # 批量操作（审核/封禁）
+│   │       └── views.py            # 自定义管理视图（数据看板）
 │   ├── core/                       # 共享基础设施
 │   │   ├── models.py               # BaseModel（UUID pk, created_at, updated_at）
 │   │   ├── pagination.py           # StandardPagination → 统一分页响应格式
@@ -180,7 +177,7 @@ SwapCampus/
 | 角色 | 成员 | 职责范围 |
 |------|------|---------|
 | 后端 A | J0rthan | **users + chat**（M1+M5）JWT 认证、用户 CRUD、信用积分、Django Channels WebSocket、会话管理 |
-| 后端 B | __xingyeyu______ | **products + transactions + admin_panel**（M2+M3+M4+M6）商品 CRUD、搜索 API、django-filter 筛选、订单状态机、评价、Django Admin 定制、数据看板 |
+| 后端 B | ________ | **products + transactions + admin_panel**（M2+M3+M4+M6）商品 CRUD、搜索 API、django-filter 筛选、订单状态机、评价、Django Admin 定制、数据看板 |
 | 前端 A | ________ | **用户端核心页面** 首页商品流、搜索筛选、商品详情、聊天界面（WebSocket 对接）、商品卡片组件 |
 | 前端 B | ________ | **用户端辅助页面 + 基础设施** 登录注册、发布商品、个人主页、我的商品/订单、Axios 封装、路由、Pinia stores、公共组件 |
 
@@ -459,32 +456,17 @@ cd frontend && npm run test:unit
 ### 前置要求
 - Python 3.12+
 - Node.js 18+
-- Redis（Channels 依赖，开发可跳过，Docker 部署时自动提供）
-- MySQL 8.0+（可选：生产/CI 使用；开发默认使用 SQLite 零配置启动）
+- MySQL 8.0+（需提前安装并启动服务）
+- Redis（Channels 依赖，Docker 部署时自动提供）
 
-### 数据库
-
-**开发环境**：默认使用 SQLite（`backend/db.sqlite3`），零配置启动，无需安装 MySQL。
-
-**切换到 MySQL**（生产/CI）：
-```bash
-# .env 中添加
-DB_ENGINE=mysql
-DB_NAME=swapcampus
-DB_USER=swapcampus
-DB_PASSWORD=your_password_here
-DB_HOST=127.0.0.1
-DB_PORT=3306
-```
+### 数据库初始化（每位成员首次克隆后执行一次）
 ```sql
--- 仅在需要 MySQL 时执行一次
+-- 在 MySQL 中执行（用 root 或管理员账号登录）
 CREATE DATABASE swapcampus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER 'swapcampus'@'localhost' IDENTIFIED BY 'your_password_here';
 GRANT ALL PRIVILEGES ON swapcampus.* TO 'swapcampus'@'localhost';
 FLUSH PRIVILEGES;
 ```
-
-> 注意：`mysqlclient` 在 macOS + MySQL 9.x 下存在链接兼容性问题，项目使用纯 Python 的 **PyMySQL** 作为 MySQL 驱动（`manage.py` 中自动注册 `pymysql.install_as_MySQLdb()`）。
 
 ### 本地开发
 ```bash
@@ -494,12 +476,12 @@ cd SwapCampus
 
 # 2. 后端
 cd backend
-cp .env.example .env                 # 复制环境变量模版（默认 SQLite，无需修改）
+cp .env.example .env   # 复制环境变量模版，填写你的 MySQL 密码
 python -m venv venv
-source venv/bin/activate             # Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements/dev.txt
 python manage.py migrate
-python manage.py runserver           # 开发用 WSGI；如需 WebSocket 功能使用 Daphne/uvicorn
+python manage.py runserver   # 开发用 WSGI；如需 WebSocket 功能使用 Daphne/uvicorn
 
 # 3. 前端
 cd frontend
@@ -507,7 +489,7 @@ npm install
 npm run dev
 
 # 4. 运行测试
-cd backend && pytest --cov=apps --cov-report=html   # 30 个测试，目标覆盖率 ≥ 80%
+cd backend && pytest --cov=apps --cov-report=html   # 后端测试
 cd frontend && npm run test:unit                     # 前端测试
 
 # 5. 代码质量

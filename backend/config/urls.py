@@ -25,7 +25,6 @@ urlpatterns = [
     path("api/products/", include("apps.products.urls")),
     path("api/transactions/", include("apps.transactions.urls")),
     path("api/chat/", include("apps.chat.urls")),
-    path("api/admin/", include("apps.admin_panel.urls")),
 ]
 
 # 开发环境：暴露媒体文件
