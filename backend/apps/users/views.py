@@ -132,6 +132,12 @@ class UserViewSet(
             qs = qs.filter(is_active=True)
         return qs.select_related()
 
+    def retrieve(self, request, *args, **kwargs):
+        """包装统一格式的用户详情."""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance)
+        return Response(build_success_response(serializer.data))
+
     @extend_schema(summary="当前用户信息", description="获取当前登录用户的完整信息")
     @action(detail=False, methods=["get"], permission_classes=[IsAuthenticated])
     def me(self, request):

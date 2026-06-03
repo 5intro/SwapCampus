@@ -14,7 +14,7 @@ channels>=4.2,<5.0
 channels-redis>=4.2,<5.0
 
 # 数据库
-mysqlclient>=2.2,<3.0
+PyMySQL>=1.1,<2.0
 
 # 对象存储
 minio>=7.2,<8.0

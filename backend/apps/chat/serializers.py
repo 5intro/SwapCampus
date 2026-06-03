@@ -29,6 +29,7 @@ class MessageSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             "id",
+            "conversation",
             "sender",
             "sender_name",
             "is_read",
@@ -115,7 +116,7 @@ class ConversationDetailSerializer(ConversationListSerializer):
 class ConversationCreateSerializer(serializers.ModelSerializer):
     """创建会话序列化器."""
 
-    participant_id = serializers.UUIDField(required=True, write_only=True)
+    participant_id = serializers.CharField(required=True, write_only=True)
 
     class Meta:
         model = Conversation
