@@ -202,7 +202,11 @@ class ProductCreateSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         images_data = validated_data.pop("images", [])
+        tags_data = validated_data.pop("tags", [])
         product = Product.objects.create(**validated_data)
+
+        if tags_data:
+            product.tags.set(tags_data)
 
         for i, img_file in enumerate(images_data):
             compressed = compress_image(img_file)
