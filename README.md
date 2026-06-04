@@ -19,24 +19,110 @@
 
 ## 快速开始
 
+### 环境要求
+
+- **Python 3.12+** (后端)
+- **Node.js 18+** (前端)
+- 数据库默认使用 **SQLite**（零配置），无需安装 MySQL 或 Redis
+
+### 第一步：启动后端 (Django)
+
 ```bash
-# 1. 初始化 MySQL 数据库（仅首次）
-mysql -u root -p -e "CREATE DATABASE swapcampus CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-
-# 2. 后端
 cd backend
-cp .env.example .env  # 填写数据库连接信息
-python -m venv venv && source venv/bin/activate
+
+# 1. 复制环境变量（首次）
+cp .env.example .env
+
+# 2. 创建虚拟环境（首次）
+python -m venv venv
+
+# 3. 激活虚拟环境
+# Windows:
+venv\Scripts\activate
+# macOS / Linux:
+source venv/bin/activate
+
+# 4. 安装依赖（首次）
 pip install -r requirements/dev.txt
+
+# 5. 数据库迁移（首次）
 python manage.py migrate
+
+# 6. 启动开发服务器
 python manage.py runserver
+```
 
-# 3. 前端
+> 后端默认运行在 **http://127.0.0.1:8000**
+>
+> Swagger API 文档: http://127.0.0.1:8000/api/docs/swagger/
+
+### 第二步：启动前端 (Vue 3 + Vite)
+
+打开**另一个终端**：
+
+```bash
 cd frontend
-npm install && npm run dev
 
-# 4. Docker 部署
+# 1. 安装依赖（首次，国内建议用镜像）
+npm install --registry=https://registry.npmmirror.com
+
+# 2. 启动开发服务器
+npm run dev
+```
+
+> 前端默认运行在 **http://127.0.0.1:5173**
+>
+> Vite 自动将 `/api/*` 请求代理到后端 8000 端口
+
+### 第三步：打开浏览器
+
+访问 **http://127.0.0.1:5173**
+
+### 测试账号
+
+| 字段 | 值 |
+|------|-----|
+| 学号 | `20240001` |
+| 密码 | `test1234` |
+
+> 创建更多测试账号：
+> ```bash
+> cd backend
+> venv\Scripts\activate
+> python manage.py shell -c "
+> from apps.users.models import User
+> User.objects.create_user(username='20240002', password='test1234', nickname='小明', campus='校本部')
+> "
+> ```
+
+### 需要注意
+
+- 打开两个终端窗口，一个跑后端一个跑前端
+- 后端终端保持 `runserver` 运行，**不要关闭**
+- 前端的 Vite proxy 已经配好，`/api/*` 请求自动转发，无需手动配置跨域
+- 默认使用 SQLite，数据库文件会生成在 `backend/db.sqlite3`，无需额外安装
+
+### 可选：Docker 一键部署
+
+```bash
 docker compose -f docker/docker-compose.yml up -d
+```
+
+### 目录结构速查
+
+```
+SwapCampus/
+├── backend/          # Django 5 后端（API + WebSocket）
+├── frontend/         # Vue 3 + Vite + Element Plus 前端
+│   └── src/
+│       ├── views/        # 11 个页面
+│       ├── components/   # 9 个公共组件
+│       ├── api/          # 6 个 API 模块（含 JWT 自动刷新）
+│       ├── stores/       # 3 个 Pinia Store
+│       ├── router/       # 路由 + 导航守卫
+│       └── utils/        # 格式化 + 校验
+├── docker/           # Docker 配置
+└── docs/             # 课程设计文档
 ```
 
 ## 团队
