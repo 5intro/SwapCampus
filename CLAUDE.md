@@ -54,23 +54,25 @@ SwapCampus/
 │   │   │   ├── services.py         # 信用分原子化变更（select_for_update + atomic）
 │   │   │   ├── admin.py            # Django Admin 定制（User + CreditRecord）
 │   │   │   └── tests/              # 18 个测试用例（注册/登录/个人信息/积分）
-│   │   ├── products/               # M2 商品发布 + M3 检索（后端B 待实现）
-│   │   │   ├── apps.py             # AppConfig（占位）
-│   │   │   ├── urls.py             # API 路由（占位）
-│   │   │   ├── models.py           # Product, Category, Tag, Image
-│   │   │   ├── serializers.py
-│   │   │   ├── views.py
-│   │   │   ├── filters.py          # django-filter 高级筛选
-│   │   │   ├── search.py           # 全文搜索逻辑
-│   │   │   └── tests/
-│   │   ├── transactions/           # M4 交易流程（后端B 待实现）
-│   │   │   ├── apps.py             # AppConfig（占位）
-│   │   │   ├── urls.py             # API 路由（占位）
+│   │   ├── products/               # M2 商品发布 + M3 检索（✅ 后端B 已实现）
+│   │   │   ├── apps.py             # AppConfig
+│   │   │   ├── urls.py             # API 路由
+│   │   │   ├── models.py           # Product, Category, Tag, ProductImage
+│   │   │   ├── serializers.py     # ProductList/Detail/Create/Update, Category, Tag, Image
+│   │   │   ├── views.py            # ProductViewSet, CategoryViewSet, TagViewSet
+│   │   │   ├── services.py         # 商品状态变更
+│   │   │   ├── filters.py          # django-filter 高级筛选（分类/价格/成色/排序）
+│   │   │   ├── admin.py            # ProductAdmin, CategoryAdmin, TagAdmin
+│   │   │   └── tests/              # 26 个测试用例（CRUD/筛选/搜索/状态转换）
+│   │   ├── transactions/           # M4 交易流程（✅ 后端B 已实现）
+│   │   │   ├── apps.py             # AppConfig
+│   │   │   ├── urls.py             # API 路由
 │   │   │   ├── models.py           # Order, Review, FaceConfirm
-│   │   │   ├── serializers.py
-│   │   │   ├── views.py
-│   │   │   ├── services.py         # 订单状态机、评价逻辑
-│   │   │   └── tests/
+│   │   │   ├── serializers.py     # OrderList/Detail/Create, Review, FaceConfirm
+│   │   │   ├── views.py            # OrderViewSet, ReviewViewSet
+│   │   │   ├── services.py         # 订单状态机（6状态 8+转换）、评价逻辑、面交确认
+│   │   │   ├── admin.py            # OrderAdmin, ReviewAdmin, FaceConfirmAdmin
+│   │   │   └── tests/              # 25 个测试用例（订单/状态机/面交/评价/积分联动）
 │   │   ├── chat/                   # M5 站内通讯（✅ 后端A 已实现）
 │   │   │   ├── apps.py             # AppConfig
 │   │   │   ├── models.py           # Conversation, Message
@@ -80,12 +82,13 @@ SwapCampus/
 │   │   │   ├── urls.py             # API 路由（conversations/.../messages|read）
 │   │   │   ├── admin.py            # Django Admin 定制
 │   │   │   └── tests/              # 14 个测试用例（会话/消息/已读/权限）
-│   │   └── admin_panel/            # M6 Django Admin 定制（后端B 待实现）
-│   │       ├── apps.py             # AppConfig（占位）
-│   │       ├── urls.py             # API 路由（占位）
-│   │       ├── admin.py            # ModelAdmin 配置
-│   │       ├── actions.py          # 批量操作（审核/封禁）
-│   │       └── views.py            # 自定义管理视图（数据看板）
+│   │   └── admin_panel/            # M6 Django Admin 定制（✅ 后端B 已实现）
+│   │       ├── apps.py             # AppConfig
+│   │       ├── urls.py             # Dashboard API 路由
+│   │       ├── admin.py            # 跨模块 Admin 增强（Product/User/Order 批量操作 + CreditRecordInline）
+│   │       ├── actions.py          # 批量操作实现（approve_products/hide_products/ban_users/cancel_orders_admin）
+│   │       ├── views.py            # DashboardView（total_users/active_products/pending_orders/completed_orders/recent_registrations）
+│   │       └── tests/              # 4 个测试用例（Dashboard/批量操作）
 │   ├── core/                       # 共享基础设施
 │   │   ├── models.py               # BaseModel（UUID pk, created_at, updated_at）
 │   │   ├── pagination.py           # StandardPagination → 统一分页响应格式
@@ -177,7 +180,7 @@ SwapCampus/
 | 角色 | 成员 | 职责范围 |
 |------|------|---------|
 | 后端 A | J0rthan | **users + chat**（M1+M5）JWT 认证、用户 CRUD、信用积分、Django Channels WebSocket、会话管理 |
-| 后端 B | ________ | **products + transactions + admin_panel**（M2+M3+M4+M6）商品 CRUD、搜索 API、django-filter 筛选、订单状态机、评价、Django Admin 定制、数据看板 |
+| 后端 B | __xingyeyu______ | **products + transactions + admin_panel**（M2+M3+M4+M6）商品 CRUD、搜索 API、django-filter 筛选、订单状态机、评价、Django Admin 定制、数据看板 |
 | 前端 A | ________ | **用户端核心页面** 首页商品流、搜索筛选、商品详情、聊天界面（WebSocket 对接）、商品卡片组件 |
 | 前端 B | ________ | **用户端辅助页面 + 基础设施** 登录注册、发布商品、个人主页、我的商品/订单、Axios 封装、路由、Pinia stores、公共组件 |
 
