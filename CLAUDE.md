@@ -76,7 +76,7 @@ SwapCampus/
 │   │   ├── chat/                   # M5 站内通讯（✅ 后端A 已实现）
 │   │   │   ├── apps.py             # AppConfig
 │   │   │   ├── models.py           # Conversation, Message
-│   │   │   ├── consumers.py        # ChatConsumer（WebSocket 实时收发/已读/在线状态）
+│   │   │   ├── consumers.py        # ChatConsumer（WebSocket 收发/read_conversation/已读/在线状态）
 │   │   │   ├── serializers.py     # ConversationList/Detail/Create, Message
 │   │   │   ├── views.py            # ConversationViewSet（CRUD/消息/已读）
 │   │   │   ├── urls.py             # API 路由（conversations/.../messages|read）
@@ -247,6 +247,7 @@ App.vue 根据路由 `meta.layout` 自动渲染 Navbar 和 Footer：
 
 - **JWT 自动刷新**: 请求 401 → 用 refresh token 换新 access → 重试原请求
 - **聊天**: WebSocket 主通道 + 8s REST 轮询兜底，断线 3s 自动重连
+- **已读/未读**: 消息气泡显示已读/未读标签，打开会话自动标记已读并 WebSocket 实时同步给对方，Navbar 未读徽标 15s 轮询刷新
 - **订单状态机**: 前端完整对应后端 6 状态：pending → accepted/rejected → face_confirm → completed
 - **面交确认码**: 卖家生成 6 位码 → 买家输入验证 → 双方确认完成
 - **信用积分**: CreditBadge 组件自动计算等级颜色（excellent/good/fair/poor）
@@ -466,8 +467,9 @@ chore: 杂项          chore: update docker-compose.yml
 |------|------|------|
 | `chat_message` | 客户端→服务端 | 发送消息 |
 | `new_message` | 服务端→客户端 | 广播新消息 |
-| `mark_read` | 客户端→服务端 | 标记已读 |
-| `messages_read` | 服务端→客户端 | 通知已读 |
+| `mark_read` | 客户端→服务端 | 按消息ID批量标记已读 |
+| `read_conversation` | 客户端→服务端 | 标记整个会话已读（自动查找对方未读消息） |
+| `messages_read` | 服务端→客户端 | 通知已读（携带 message_ids） |
 | `typing` | 双向 | 输入状态 |
 | `user_status` | 服务端→客户端 | 在线/离线状态 |
 

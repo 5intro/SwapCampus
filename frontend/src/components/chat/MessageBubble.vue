@@ -27,7 +27,12 @@ defineProps({
   <div v-else class="message-bubble message-mine">
     <div class="msg-body">
       <div class="msg-content">{{ message.content }}</div>
-      <div class="msg-time">{{ formatTime(message.created_at) }}</div>
+      <div class="msg-meta">
+        <span class="msg-time">{{ formatTime(message.created_at) }}</span>
+        <span class="msg-read-status" :class="{ 'is-read': message.is_read }">
+          {{ message.is_read ? '已读' : '未读' }}
+        </span>
+      </div>
     </div>
     <el-avatar :size="32" class="msg-avatar">
       {{ message.sender_name?.[0] || '我' }}
@@ -81,9 +86,29 @@ defineProps({
   color: #fff;
 }
 
+.msg-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.message-mine .msg-meta {
+  justify-content: flex-end;
+}
+
 .msg-time {
   font-size: 11px;
   color: var(--text-secondary);
-  margin-top: 4px;
+}
+
+.msg-read-status {
+  font-size: 11px;
+  color: #b0b0b0;
+  transition: color 0.3s;
+}
+
+.msg-read-status.is-read {
+  color: var(--text-secondary);
 }
 </style>

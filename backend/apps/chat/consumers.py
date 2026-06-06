@@ -115,6 +115,8 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             await self._handle_chat_message(content)
         elif msg_type == "mark_read":
             await self._handle_mark_read(content)
+        elif msg_type == "read_conversation":
+            await self._handle_read_conversation(content)
         elif msg_type == "typing":
             await self._handle_typing(content)
         else:
@@ -161,6 +163,22 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
         updated_count = await self._mark_messages_read(message_ids)
 
         if updated_count > 0:
+            # 广播已读事件
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    "type": "messages_read",
+                    "reader_id": str(self.user.id),
+                    "message_ids": message_ids,
+                },
+            )
+
+    async def _handle_read_conversation(self, content):
+        """处理已读会话：将该会话中对方发的所有未读消息标记为已读."""
+        # 批量标记对方发的未读消息为已读
+        message_ids = await self._mark_conversation_read()
+
+        if message_ids:
             # 广播已读事件
             await self.channel_layer.group_send(
                 self.group_name,
@@ -266,3 +284,19 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             id__in=message_ids,
             is_read=False,
         ).exclude(sender=self.user).update(is_read=True)
+
+    @database_sync_to_async
+    def _mark_conversation_read(self) -> list[str]:
+        """将该会话中对方发的所有未读消息标记为已读，返回已更新的消息ID列表."""
+        from apps.chat.models import Message
+
+        qs = Message.objects.filter(
+            conversation_id=self.conversation_uuid,
+            is_read=False,
+        ).exclude(sender=self.user)
+
+        # 先获取 ID 列表再更新
+        message_ids = list(qs.values_list("id", flat=True))
+        if message_ids:
+            qs.update(is_read=True)
+        return [str(mid) for mid in message_ids]
