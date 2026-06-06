@@ -14,6 +14,9 @@
       <div class="footer-copy">
         &copy; {{ new Date().getFullYear() }} SwapCampus Team. MIT License.
       </div>
+      <div class="footer-icp">
+        <a href="http://beian.miit.gov.cn" target="_blank" rel="noopener">京ICP备2026006511号</a>
+      </div>
     </div>
   </footer>
 </template>
@@ -75,6 +78,21 @@
   width: 100%;
   text-align: center;
   padding-top: 8px;
+}
+
+.footer-icp {
+  width: 100%;
+  text-align: center;
+  padding-top: 4px;
+}
+
+.footer-icp a {
+  color: var(--text-secondary);
+  text-decoration: none;
+}
+
+.footer-icp a:hover {
+  color: var(--text-primary);
 }
 
 @media (max-width: 640px) {

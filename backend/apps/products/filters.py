@@ -8,6 +8,7 @@ from apps.products.models import Product
 class ProductFilter(filters.FilterSet):
     """商品高级筛选."""
 
+    seller = filters.UUIDFilter(field_name="seller_id", lookup_expr="exact")
     category = filters.UUIDFilter(field_name="category_id", lookup_expr="exact")
     price_min = filters.NumberFilter(field_name="price", lookup_expr="gte")
     price_max = filters.NumberFilter(field_name="price", lookup_expr="lte")

@@ -147,6 +147,8 @@ SwapCampus/
 │   ├── vite.config.js              # Vite 配置（代理到 Django）
 │   └── package.json
 │
+├── deploy.bat                       # Windows Server 一键部署脚本
+├── .agents/skills/                  # taste-skill 设计框架（13 个 skill）
 ├── docker/                         # 容器化配置
 │   ├── Dockerfile.backend          # Django 后端镜像
 │   ├── Dockerfile.frontend         # Nginx + 前端构建产物
@@ -175,9 +177,9 @@ SwapCampus/
 
 ---
 
-## 前端 UI — 已实现（2026-06-04）
+## 前端 UI — 已实现（2026-06-06 更新）
 
-> 前端已完整搭建。使用 **ux-skill v3.1** 设计智能引擎辅助设计决策。
+> 前端已完整搭建。使用 **taste-skill**（Leonxlnx/taste-skill 28.5K stars）设计智能引擎辅助设计决策。
 > 安装: `npm install && npm run dev`
 
 ### 设计系统
@@ -185,12 +187,19 @@ SwapCampus/
 | Token | 值 | 来源 |
 |-------|-----|------|
 | 主色调 | `#43a047` 森林绿 | 北林校园主题 |
-| 强调色 | `#ff9800` 暖橙（价格/CTA） | uxskill warm palette |
-| 圆角 | 8px / 12px / 24px(pill) | uxskill radius 预设 |
-| 动效 | `fade-up-12px` 360ms ease-cinema | uxskill motion preset |
+| 强调色 | `#e65100` 暖橙（价格） | taste-skill color calibration |
+| 圆角 | 8px / 12px / 16px | CSS 变量 |
+| 动效 | `cubic-bezier(0.16, 1, 0.3, 1)` 250-400ms | taste-skill motion preset |
 | 字体 | 系统默认（PingFang SC） | 校园网性能优先 |
-| 卡片阴影 | `0 2px 12px rgba(0,0,0,0.06)` | — |
-| 反AI-Slop | 无紫蓝渐变、无"John Doe"、无3等宽卡片 | uxskill 152规则 |
+| 卡片阴影 | `0 4px 16px rgba(67,160,71,0.12)` 绿色调 | — |
+| 反AI-Slop | 无紫蓝渐变、无 emoji 装饰、无 em-dash、无 Inter 字体 | taste-skill 规则 |
+
+### App.vue 布局系统
+
+App.vue 根据路由 `meta.layout` 自动渲染 Navbar 和 Footer：
+- `layout: 'default'` → Navbar + 内容 + Footer
+- `layout: 'blank'` → 仅内容（登录/注册页）
+- `layout: 'chat'` → Navbar + 全高内容
 
 ### 已实现页面
 
@@ -253,7 +262,7 @@ SwapCampus/
 |------|------|---------|
 | 后端 A | J0rthan | **users + chat**（M1+M5）JWT 认证、用户 CRUD、信用积分、Django Channels WebSocket、会话管理 |
 | 后端 B | __xingyeyu______ | **products + transactions + admin_panel**（M2+M3+M4+M6）商品 CRUD、搜索 API、django-filter 筛选、订单状态机、评价、Django Admin 定制、数据看板 |
-| 前端 A | Claude AI | **全部用户端页面 + 基础设施** 11 个页面、15 个组件、3个 Pinia Store、完整 API 层、路由守卫、WebSocket 聊天、响应式适配（ux-skill 辅助设计） |
+| 前端 A | Claude AI | **全部用户端页面 + 基础设施** 11 个页面、15 个组件、3个 Pinia Store、完整 API 层、路由守卫、WebSocket 聊天、响应式适配（taste-skill 辅助设计） |
 | 前端 B | ________ | **代码审查 + 功能测试** 验证 API 对接、边界用例、移动端适配 |
 
 ### 备份机制
@@ -378,7 +387,7 @@ chore: 杂项          chore: update docker-compose.yml
 - UUID 由应用层生成（`uuid.uuid4`），不依赖数据库
 
 ### 用户模型
-- 自定义 `User` 扩展 `AbstractUser`，`username` 存储学号（8 位数字，正则校验）
+- 自定义 `User` 扩展 `AbstractUser`，`username` 存储学号（8-9 位数字，正则校验 `^\d{8,9}$`）
 - `credit_score` 初始 100 分，通过 `CreditRecord` 记录每次变更
 - 信用等级按分数自动计算：`excellent(≥150)` / `good(≥100)` / `fair(≥60)` / `poor(<60)`
 
@@ -431,6 +440,19 @@ chore: 杂项          chore: update docker-compose.yml
 | GET | `/conversations/{id}/messages/` | 分页历史消息 | JWT |
 | POST | `/conversations/{id}/messages/` | 发送消息（REST） | JWT |
 | POST | `/conversations/{id}/read/` | 标记已读 | JWT |
+
+### 商品模块（`/api/products/`）
+
+| 方法 | 路径 | 说明 | 鉴权 |
+|------|------|------|------|
+| GET | `/` | 商品列表（支持筛选 `?seller=&category=&status=&sort_by=`） | 可选 |
+| POST | `/` | 发布商品 | JWT |
+| GET | `/{id}/` | 商品详情 | 可选 |
+| PATCH | `/{id}/` | 更新商品（含 status 下架） | JWT(卖家) |
+| DELETE | `/{id}/` | 删除商品 | JWT(卖家) |
+| GET | `/my/` | 我的商品 | JWT |
+| GET | `/categories/` | 分类列表 | 无 |
+| GET | `/tags/` | 标签列表 | 无 |
 
 ### WebSocket
 
@@ -588,6 +610,32 @@ ruff format .     # 自动格式化
 
 # 6. 完整部署（Docker）
 docker compose -f docker/docker-compose.yml up -d
+```
+
+### Windows Server 直接部署
+
+> 阿里云 ECS 不支持嵌套虚拟化，生产环境使用 Waitress（Windows 兼容的 WSGI 服务器）代替 gunicorn。
+
+```batch
+:: 将项目文件复制到 C:\SwapCampus\
+:: 确保 .env 放在 C:\SwapCampus\ （与 deploy.bat 同目录）
+cd C:\SwapCampus
+deploy.bat
+```
+
+部署后 Nginx 指向 `C:\SwapCampus\frontend\dist` 提供前端，反向代理 `/api/` 到 `127.0.0.1:8000`。
+
+### 部署更新（仅替换修改的文件夹）
+
+```powershell
+# 前端：替换 src/ 和 public/ 后
+cd C:\SwapCampus\frontend
+npm run build
+
+# 后端：替换 apps/ 和 core/ 后重启
+Ctrl+C
+venv\Scripts\activate
+waitress-serve --port=8000 config.wsgi:application
 ```
 
 ---

@@ -254,6 +254,7 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
             "price",
             "original_price",
             "condition",
+            "status",
             "campus",
             "category_id",
             "tag_ids",

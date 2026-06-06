@@ -96,12 +96,18 @@ function logout() {
         </template>
 
         <template v-else>
-          <el-menu-item index="/login">
-            <el-button text>登录</el-button>
-          </el-menu-item>
-          <el-menu-item index="/register">
-            <el-button type="primary" round size="small">注册</el-button>
-          </el-menu-item>
+          <div class="nav-auth-buttons">
+            <el-button
+              class="btn-login"
+              round
+              @click="$router.push('/login')"
+            >登录</el-button>
+            <el-button
+              type="success"
+              round
+              @click="$router.push('/register')"
+            >注册</el-button>
+          </div>
         </template>
       </div>
     </div>
@@ -186,6 +192,24 @@ function logout() {
   max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.nav-auth-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-login {
+  color: var(--color-brand-dark);
+  border-color: var(--color-brand);
+  font-weight: 500;
+}
+
+.btn-login:hover {
+  color: #fff;
+  background: var(--color-brand);
+  border-color: var(--color-brand);
 }
 
 .unread-badge {

@@ -37,9 +37,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             "username": {
-                "help_text": "北京林业大学学号（8 位数字）",
+                "help_text": "北京林业大学学号（8-9 位数字）",
                 "min_length": 8,
-                "max_length": 8,
+                "max_length": 9,
             },
             "email": {"required": False},
             "nickname": {"required": False},
@@ -47,9 +47,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         }
 
     def validate_username(self, value):
-        """校验学号格式：8 位数字."""
-        if not re.match(r"^\d{8}$", value):
-            raise serializers.ValidationError("学号必须为 8 位数字")
+        """校验学号格式：8-9 位数字."""
+        if not re.match(r"^\d{8,9}$", value):
+            raise serializers.ValidationError("学号必须为 8-9 位数字")
         if User.objects.filter(username=value).exists():
             raise serializers.ValidationError("该学号已注册")
         return value

@@ -10,6 +10,10 @@
   --color-warning: #e6a23c;
   --color-danger: #f56c6c;
   --color-info: #909399;
+  --color-brand: #43a047;
+  --color-brand-dark: #2e7d32;
+  --color-brand-light: #e8f5e9;
+  --color-price: #e65100;
   --bg-page: #f5f7fa;
   --bg-card: #ffffff;
   --text-primary: #303133;
@@ -18,8 +22,14 @@
   --border-color: #e4e7ed;
   --radius-base: 8px;
   --radius-lg: 12px;
+  --radius-xl: 16px;
   --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.06);
   --shadow-hover: 0 4px 20px rgba(0, 0, 0, 0.1);
+  --shadow-green: 0 4px 16px rgba(67, 160, 71, 0.12);
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 body {
@@ -28,7 +38,7 @@ body {
     sans-serif;
   color: var(--text-primary);
   background: var(--bg-page);
-  min-height: 100vh;
+  min-height: 100dvh;
 }
 
 #app {

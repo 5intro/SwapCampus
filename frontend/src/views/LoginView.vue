@@ -56,9 +56,9 @@ async function handleLogin() {
         <el-form-item label="学号" prop="username">
           <el-input
             v-model="form.username"
-            placeholder="请输入 8 位学号"
+            placeholder="请输入学号"
             :prefix-icon="User"
-            maxlength="8"
+            maxlength="9"
             autocomplete="username"
           />
         </el-form-item>

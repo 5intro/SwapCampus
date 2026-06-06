@@ -1,7 +1,7 @@
 export const studentIdRule = {
   required: true,
-  pattern: /^\d{8}$/,
-  message: '请输入 8 位数字学号',
+  pattern: /^\d{8,9}$/,
+  message: '请输入 8-9 位数字学号',
   trigger: 'blur',
 }
 
