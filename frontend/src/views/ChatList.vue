@@ -2,14 +2,14 @@
 import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { getConversations } from '@/api/chat'
+import { useChatStore } from '@/stores/chat'
 import { formatTime } from '@/utils/format'
 import { ElAvatar } from 'element-plus'
 
 const router = useRouter()
 const auth = useAuthStore()
+const chatStore = useChatStore()
 
-const conversations = ref([])
 const loading = ref(false)
 let pollTimer = null
 
@@ -25,11 +25,9 @@ onUnmounted(() => {
 async function fetchList() {
   loading.value = true
   try {
-    const res = await getConversations()
-    const data = res.data.data || res.data
-    conversations.value = data.results || data
+    await chatStore.fetchConversations()
   } catch {
-    conversations.value = []
+    // silently fail
   } finally {
     loading.value = false
   }
@@ -53,11 +51,11 @@ function getTitle(conv) {
         <h2>消息</h2>
       </div>
 
-      <div v-if="loading && conversations.length === 0" v-loading="loading" style="min-height: 200px"></div>
+      <div v-if="loading && chatStore.conversations.length === 0" v-loading="loading" style="min-height: 200px"></div>
 
-      <div v-else-if="conversations.length > 0">
+      <div v-else-if="chatStore.conversations.length > 0">
         <div
-          v-for="conv in conversations"
+          v-for="conv in chatStore.conversations"
           :key="conv.id"
           class="chat-item"
           @click="router.push(`/chat/${conv.id}`)"

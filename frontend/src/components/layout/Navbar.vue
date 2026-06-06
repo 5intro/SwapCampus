@@ -3,7 +3,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
 import { ElMessage } from 'element-plus'
 import { Search, Bell } from '@element-plus/icons-vue'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const auth = useAuthStore()
@@ -11,11 +11,18 @@ const chat = useChatStore()
 const router = useRouter()
 const searchKeyword = ref('')
 const showMobileMenu = ref(false)
+let pollTimer = null
 
 onMounted(() => {
   if (auth.isLoggedIn) {
     chat.fetchConversations()
+    // 每 15 秒刷新未读计数
+    pollTimer = setInterval(() => chat.fetchConversations(), 15000)
   }
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
 })
 
 function goSearch() {
