@@ -147,3 +147,58 @@ class CreditRecord(BaseModel):
     def __str__(self) -> str:
         sign = "+" if self.change >= 0 else ""
         return f"{self.user.username} {sign}{self.change} ({self.reason})"
+
+
+class Notification(BaseModel):
+    """站内通知."""
+
+    class Type(models.TextChoices):
+        ORDER_UPDATE = "order_update", "订单更新"
+        NEW_ORDER = "new_order", "新订单"
+        NEW_MESSAGE = "new_message", "新消息"
+        CREDIT_CHANGE = "credit_change", "积分变动"
+        NEW_REVIEW = "new_review", "新评价"
+        SYSTEM = "system", "系统通知"
+
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        verbose_name="接收人",
+    )
+    type = models.CharField(
+        max_length=20,
+        choices=Type.choices,
+        verbose_name="通知类型",
+    )
+    title = models.CharField(max_length=200, verbose_name="标题")
+    content = models.CharField(max_length=500, verbose_name="内容")
+    is_read = models.BooleanField(default=False, db_index=True, verbose_name="已读")
+    related_order = models.ForeignKey(
+        "transactions.Order",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications",
+        verbose_name="关联订单",
+    )
+    related_product = models.ForeignKey(
+        "products.Product",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications",
+        verbose_name="关联商品",
+    )
+
+    class Meta:
+        db_table = "notifications"
+        verbose_name = "站内通知"
+        verbose_name_plural = verbose_name
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["recipient", "is_read", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.recipient.get_display_name()}: {self.title}"

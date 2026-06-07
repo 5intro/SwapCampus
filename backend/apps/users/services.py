@@ -60,7 +60,36 @@ def add_credit_record(
         score_after=new_score,
         related_order=related_order,
     )
+    # 创建积分变动通知
+    sign = "+" if change >= 0 else ""
+    create_notification(
+        user, "credit_change",
+        "积分变动",
+        f"你的信用分 {sign}{change}，当前 {new_score} 分",
+        related_order=related_order,
+    )
     return record
+
+
+def create_notification(
+    recipient,
+    ntype: str,
+    title: str,
+    content: str = "",
+    related_order=None,
+    related_product=None,
+):
+    """创建站内通知."""
+    from apps.users.models import Notification
+
+    return Notification.objects.create(
+        recipient=recipient,
+        type=ntype,
+        title=title,
+        content=content,
+        related_order=related_order,
+        related_product=related_product,
+    )
 
 
 def get_credit_change(reason: str) -> int:

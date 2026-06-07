@@ -3,7 +3,7 @@
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
-from apps.products.models import Category, Product, ProductImage, Tag
+from apps.products.models import Category, Favorite, Product, ProductImage, Report, Tag
 from core.utils import compress_image
 
 User = get_user_model()
@@ -293,3 +293,79 @@ class ProductUpdateSerializer(serializers.ModelSerializer):
                 )
 
         return instance
+
+
+# ═══════════════════════════════════════════════════════════
+# 收藏
+# ═══════════════════════════════════════════════════════════
+class FavoriteSerializer(serializers.ModelSerializer):
+    """收藏序列化器."""
+
+    product = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Favorite
+        fields = ["id", "product", "created_at"]
+        read_only_fields = ["id", "created_at"]
+
+    def get_product(self, obj) -> dict:
+        img = obj.product.cover_image
+        img_url = None
+        if img and img.image:
+            request = self.context.get("request")
+            if request:
+                img_url = request.build_absolute_uri(img.image.url)
+        return {
+            "id": str(obj.product.id),
+            "title": obj.product.title,
+            "price": str(obj.product.price),
+            "status": obj.product.status,
+            "cover_image": img_url,
+        }
+
+
+class FavoriteCreateSerializer(serializers.Serializer):
+    """收藏创建序列化器."""
+
+    product_id = serializers.UUIDField()
+
+
+# ═══════════════════════════════════════════════════════════
+# 举报
+# ═══════════════════════════════════════════════════════════
+class ReportSerializer(serializers.ModelSerializer):
+    """举报序列化器."""
+
+    reporter_name = serializers.SerializerMethodField()
+    product_title = serializers.SerializerMethodField()
+    reason_display = serializers.CharField(source="get_reason_display", read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = Report
+        fields = [
+            "id", "product", "product_title", "reporter", "reporter_name",
+            "reason", "reason_display", "description", "status",
+            "status_display", "handled_note", "created_at",
+        ]
+        read_only_fields = ["id", "status", "handled_by", "handled_note", "created_at"]
+
+    def get_reporter_name(self, obj) -> str:
+        return obj.reporter.get_display_name()
+
+    def get_product_title(self, obj) -> str:
+        return obj.product.title
+
+
+class ReportCreateSerializer(serializers.Serializer):
+    """举报创建序列化器."""
+
+    product_id = serializers.UUIDField()
+    reason = serializers.ChoiceField(choices=[
+        ("inappropriate", "内容不当"),
+        ("counterfeit", "假冒伪劣"),
+        ("fraud", "虚假交易"),
+        ("prohibited", "违禁物品"),
+        ("other", "其他"),
+    ])
+    description = serializers.CharField(max_length=500, required=False, allow_blank=True, default="")

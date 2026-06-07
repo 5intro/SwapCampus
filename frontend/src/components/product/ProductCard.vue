@@ -10,6 +10,7 @@ const props = defineProps({
 })
 
 const router = useRouter()
+defineEmits(['toggleFavorite'])
 
 function goDetail() {
   router.push(`/product/${props.product.id}`)
@@ -48,6 +49,15 @@ function goDetail() {
       >
         {{ conditionLabels[product.condition] || product.condition_display }}
       </el-tag>
+
+      <el-button
+        class="fav-btn"
+        :class="{ 'is-fav': product.is_favorited }"
+        :icon="product.is_favorited ? 'StarFilled' : 'Star'"
+        circle
+        size="small"
+        @click.stop="$emit('toggleFavorite', product)"
+      />
 
       <div v-if="product.status !== 'active'" class="status-overlay">
         <el-tag type="info" size="large" effect="plain">
@@ -204,5 +214,18 @@ function goDetail() {
 
 .seller-avatar {
   font-size: 12px;
+}
+
+.fav-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+}
+
+.fav-btn.is-fav {
+  color: #f5a623;
 }
 </style>

@@ -15,6 +15,7 @@ class ProductFilter(filters.FilterSet):
     condition = filters.ChoiceFilter(choices=Product.Condition.choices)
     campus = filters.CharFilter(field_name="campus", lookup_expr="icontains")
     status = filters.ChoiceFilter(choices=Product.Status.choices)
+    tag = filters.UUIDFilter(field_name="tags__id", lookup_expr="exact", label="按标签筛选")
     sort_by = filters.OrderingFilter(
         fields={
             "price": "price_asc",

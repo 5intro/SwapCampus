@@ -18,6 +18,11 @@ const routes = [
     meta: { layout: 'default' },
   },
   {
+    path: '/product/:id/edit',
+    component: () => import('@/views/EditProductView.vue'),
+    meta: { layout: 'default', requiresAuth: true },
+  },
+  {
     path: '/publish',
     component: () => import('@/views/PublishView.vue'),
     meta: { layout: 'default', requiresAuth: true },
@@ -50,6 +55,16 @@ const routes = [
   {
     path: '/my-orders',
     component: () => import('@/views/MyOrders.vue'),
+    meta: { layout: 'default', requiresAuth: true },
+  },
+  {
+    path: '/favorites',
+    component: () => import('@/views/FavoritesView.vue'),
+    meta: { layout: 'default', requiresAuth: true },
+  },
+  {
+    path: '/notifications',
+    component: () => import('@/views/NotificationsView.vue'),
     meta: { layout: 'default', requiresAuth: true },
   },
   {

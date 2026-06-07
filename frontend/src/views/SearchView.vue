@@ -22,6 +22,7 @@ const categoryId = ref('')
 const condition = ref('')
 const minPrice = ref('')
 const maxPrice = ref('')
+const tagId = ref('')
 const sortBy = ref('newest')
 
 // sortBy value mapping: frontend key → backend sort_by parameter
@@ -60,6 +61,7 @@ async function search() {
     if (keyword.value.trim()) params.search = keyword.value.trim()
     if (categoryId.value) params.category = categoryId.value
     if (condition.value) params.condition = condition.value
+    if (tagId.value) params.tag = tagId.value
     if (minPrice.value) params.price_min = minPrice.value
     if (maxPrice.value) params.price_max = maxPrice.value
 
@@ -88,6 +90,7 @@ function clearFilters() {
   keyword.value = ''
   categoryId.value = ''
   condition.value = ''
+  tagId.value = ''
   minPrice.value = ''
   maxPrice.value = ''
   currentPage.value = 1
@@ -128,6 +131,18 @@ function clearFilters() {
                 :key="key"
                 :label="label"
                 :value="key"
+              />
+            </el-select>
+          </div>
+
+          <div class="filter-group">
+            <label>标签</label>
+            <el-select v-model="tagId" placeholder="全部标签" clearable style="width: 100%" @change="handleFilterChange">
+              <el-option
+                v-for="tag in tags"
+                :key="tag.id"
+                :label="tag.name"
+                :value="tag.id"
               />
             </el-select>
           </div>

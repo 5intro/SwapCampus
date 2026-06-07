@@ -2,11 +2,14 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { getProduct } from '@/api/products'
+import { getProduct, getRelatedProducts } from '@/api/products'
+import { addFavorite, getFavorites, removeFavorite } from '@/api/favorites'
+import { createReport } from '@/api/reports'
 import { createOrder } from '@/api/transactions'
 import { createConversation } from '@/api/chat'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import CreditBadge from '@/components/user/CreditBadge.vue'
+import ProductCard from '@/components/product/ProductCard.vue'
 import {
   formatPrice, formatTime, formatDateTime,
   conditionLabels, conditionColors,
@@ -19,6 +22,20 @@ const auth = useAuthStore()
 const product = ref(null)
 const loading = ref(true)
 const activeImageIndex = ref(0)
+const relatedProducts = ref([])
+const isFavorited = ref(false)
+const favoriteId = ref(null)
+const reportDialog = ref(false)
+const reportReason = ref('')
+const reportDesc = ref('')
+
+const reportReasons = [
+  { value: 'inappropriate', label: '内容不当' },
+  { value: 'counterfeit', label: '假冒伪劣' },
+  { value: 'fraud', label: '虚假交易' },
+  { value: 'prohibited', label: '违禁物品' },
+  { value: 'other', label: '其他' },
+]
 
 onMounted(async () => {
   try {
@@ -30,7 +47,93 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+  fetchRelated()
+  checkFav()
 })
+
+async function fetchRelated() {
+  try {
+    const res = await getRelatedProducts(route.params.id)
+    relatedProducts.value = (res.data.data || res.data)?.results || res.data.data || []
+  } catch {}
+}
+
+async function checkFav() {
+  if (!auth.isLoggedIn) return
+  try {
+    const res = await getFavorites({ page_size: 50 })
+    const data = res.data.data || res.data
+    const favs = data.results || data
+    const fav = favs.find(f => f.product.id === product.value?.id)
+    if (fav) {
+      isFavorited.value = true
+      favoriteId.value = fav.id
+    }
+  } catch {}
+}
+
+async function toggleFavorite() {
+  if (!auth.isLoggedIn) {
+    router.push({ path: '/login', query: { redirect: route.fullPath } })
+    return
+  }
+  try {
+    if (isFavorited.value) {
+      await removeFavorite(favoriteId.value)
+      isFavorited.value = false
+      ElMessage.success('已取消收藏')
+    } else {
+      const res = await addFavorite(route.params.id)
+      isFavorited.value = true
+      favoriteId.value = res.data.data.id
+      ElMessage.success('已加入收藏')
+    }
+  } catch {
+    // handled by interceptor
+  }
+}
+
+function handleEdit() {
+  router.push(`/product/${route.params.id}/edit`)
+}
+
+async function handleDelete() {
+  try {
+    await ElMessageBox.confirm('确定要删除该商品吗？此操作不可撤销。', '确认删除', {
+      type: 'error',
+      confirmButtonText: '删除',
+    })
+    await import('@/api/products').then(m => m.deleteProduct(route.params.id))
+    ElMessage.success('已删除')
+    router.push('/my-products')
+  } catch {}
+}
+
+function handleReport() {
+  if (!auth.isLoggedIn) {
+    router.push({ path: '/login', query: { redirect: route.fullPath } })
+    return
+  }
+  reportReason.value = ''
+  reportDesc.value = ''
+  reportDialog.value = true
+}
+
+async function submitReport() {
+  if (!reportReason.value) {
+    ElMessage.warning('请选择举报原因')
+    return
+  }
+  try {
+    await createReport({
+      product_id: route.params.id,
+      reason: reportReason.value,
+      description: reportDesc.value,
+    })
+    ElMessage.success('举报已提交，我们会尽快处理')
+    reportDialog.value = false
+  } catch {}
+}
 
 async function handleBuy() {
   if (!auth.isLoggedIn) {
@@ -219,6 +322,33 @@ function isSeller() {
               <el-icon><component :is="'ChatDotRound'" /></el-icon>
               联系卖家
             </el-button>
+            <el-button
+              :type="isFavorited ? 'warning' : 'default'"
+              size="large"
+              @click="toggleFavorite"
+              round
+              :icon="isFavorited ? 'StarFilled' : 'Star'"
+            >
+              {{ isFavorited ? '已收藏' : '收藏' }}
+            </el-button>
+            <template v-if="isSeller()">
+              <el-button size="default" type="primary" plain round @click="handleEdit">
+                编辑
+              </el-button>
+              <el-button size="default" type="danger" plain round @click="handleDelete">
+                删除
+              </el-button>
+            </template>
+            <el-button
+              v-if="!isSeller()"
+              size="default"
+              type="danger"
+              plain
+              round
+              @click="handleReport"
+            >
+              举报
+            </el-button>
           </div>
 
           <!-- Tags -->
@@ -242,6 +372,47 @@ function isSeller() {
           {{ product.description || '卖家没有提供详细描述' }}
         </div>
       </section>
+
+      <!-- Related Products -->
+      <section v-if="relatedProducts.length" class="related-section">
+        <h3>相关推荐</h3>
+        <div class="card-grid">
+          <ProductCard
+            v-for="rp in relatedProducts"
+            :key="rp.id"
+            :product="rp"
+          />
+        </div>
+      </section>
+
+      <!-- Report Dialog -->
+      <el-dialog v-model="reportDialog" title="举报商品" width="420px">
+        <el-form label-position="top">
+          <el-form-item label="举报原因" required>
+            <el-select v-model="reportReason" placeholder="请选择举报原因" style="width: 100%">
+              <el-option
+                v-for="r in reportReasons"
+                :key="r.value"
+                :label="r.label"
+                :value="r.value"
+              />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="详细说明（选填）">
+            <el-input
+              v-model="reportDesc"
+              type="textarea"
+              :rows="3"
+              maxlength="500"
+              show-word-limit
+            />
+          </el-form-item>
+        </el-form>
+        <template #footer>
+          <el-button @click="reportDialog = false">取消</el-button>
+          <el-button type="danger" @click="submitReport">提交举报</el-button>
+        </template>
+      </el-dialog>
     </template>
   </div>
 </template>
@@ -470,5 +641,15 @@ function isSeller() {
   .detail-price {
     font-size: 24px;
   }
+}
+
+.related-section {
+  margin-top: 40px;
+}
+
+.related-section h3 {
+  font-size: 18px;
+  font-weight: 700;
+  margin-bottom: 20px;
 }
 </style>

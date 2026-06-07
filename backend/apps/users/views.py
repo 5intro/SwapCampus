@@ -11,9 +11,10 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.views import TokenObtainPairView as BaseTokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView as BaseTokenRefreshView
 
-from apps.users.models import CreditRecord
+from apps.users.models import CreditRecord, Notification
 from apps.users.serializers import (
     CreditRecordSerializer,
+    NotificationSerializer,
     RegisterSerializer,
     UserProfileSerializer,
     UserSerializer,
@@ -185,3 +186,34 @@ class UserViewSet(
 
         serializer = CreditRecordSerializer(qs, many=True)
         return Response(build_success_response(serializer.data))
+
+
+class NotificationViewSet(
+    mixins.ListModelMixin,
+    viewsets.GenericViewSet,
+):
+    """站内通知 ViewSet.
+
+    - GET    /api/notifications/             → 我的通知列表
+    - POST   /api/notifications/{id}/read/   → 标记已读
+    - POST   /api/notifications/read-all/    → 全部已读
+    """
+
+    permission_classes = [IsAuthenticated]
+    serializer_class = NotificationSerializer
+    lookup_field = "id"
+
+    def get_queryset(self):
+        return Notification.objects.filter(recipient=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def read(self, request, id=None):
+        notification = self.get_object()
+        notification.is_read = True
+        notification.save(update_fields=["is_read"])
+        return Response(build_success_response({"status": "ok"}))
+
+    @action(detail=False, methods=["post"], url_path="read-all")
+    def read_all(self, request):
+        self.get_queryset().filter(is_read=False).update(is_read=True)
+        return Response(build_success_response({"status": "ok"}))

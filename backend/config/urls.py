@@ -4,6 +4,12 @@ from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
 from drf_spectacular.views import SpectacularAPIView, SpectacularRedocView, SpectacularSwaggerView
+from rest_framework.routers import SimpleRouter
+
+from apps.users.views import NotificationViewSet
+
+notification_router = SimpleRouter()
+notification_router.register(r"notifications", NotificationViewSet, basename="notification")
 
 urlpatterns = [
     # Django Admin
@@ -26,6 +32,7 @@ urlpatterns = [
     path("api/transactions/", include("apps.transactions.urls")),
     path("api/chat/", include("apps.chat.urls")),
     path("api/admin/", include("apps.admin_panel.urls")),
+    path("api/", include(notification_router.urls)),
 ]
 
 # 开发环境：暴露媒体文件

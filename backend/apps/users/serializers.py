@@ -6,7 +6,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from apps.users.models import CreditRecord
+from apps.users.models import CreditRecord, Notification
 
 User = get_user_model()
 
@@ -168,5 +168,22 @@ class CreditRecordSerializer(serializers.ModelSerializer):
             "score_after",
             "related_order",
             "created_at",
+        ]
+        read_only_fields = fields
+
+
+# ═══════════════════════════════════════════════════════════
+# 站内通知
+# ═══════════════════════════════════════════════════════════
+class NotificationSerializer(serializers.ModelSerializer):
+    """站内通知序列化器."""
+
+    type_display = serializers.CharField(source="get_type_display", read_only=True)
+
+    class Meta:
+        model = Notification
+        fields = [
+            "id", "type", "type_display", "title", "content",
+            "is_read", "related_order", "related_product", "created_at",
         ]
         read_only_fields = fields

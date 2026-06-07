@@ -1,6 +1,7 @@
 <script setup>
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
+import { getNotifications } from '@/api/notifications'
 import { ElMessage } from 'element-plus'
 import { Search, Bell } from '@element-plus/icons-vue'
 import { ref, onMounted, onUnmounted } from 'vue'
@@ -11,19 +12,31 @@ const chat = useChatStore()
 const router = useRouter()
 const searchKeyword = ref('')
 const showMobileMenu = ref(false)
+const unreadNotifCount = ref(0)
 let pollTimer = null
+let notifTimer = null
 
 onMounted(() => {
   if (auth.isLoggedIn) {
     chat.fetchConversations()
-    // 每 15 秒刷新未读计数
+    fetchUnreadNotifs()
     pollTimer = setInterval(() => chat.fetchConversations(), 15000)
+    notifTimer = setInterval(fetchUnreadNotifs, 30000)
   }
 })
 
 onUnmounted(() => {
   if (pollTimer) clearInterval(pollTimer)
+  if (notifTimer) clearInterval(notifTimer)
 })
+
+async function fetchUnreadNotifs() {
+  try {
+    const res = await getNotifications({ page_size: 1, is_read: false })
+    const data = res.data.data || res.data
+    unreadNotifCount.value = data.pagination?.total || data.count || 0
+  } catch {}
+}
 
 function goSearch() {
   if (searchKeyword.value.trim()) {
@@ -79,6 +92,16 @@ function logout() {
             />
           </el-menu-item>
 
+          <el-menu-item index="/notifications">
+            <el-icon><component :is="Bell" /></el-icon>
+            <span>通知</span>
+            <el-badge
+              v-if="unreadNotifCount > 0"
+              :value="unreadNotifCount"
+              class="unread-badge"
+            />
+          </el-menu-item>
+
           <el-menu-item index="/publish" class="publish-btn">
             <el-button type="success" round>
               <el-icon><component :is="'Plus'" /></el-icon>
@@ -100,6 +123,7 @@ function logout() {
             <el-menu-item index="/profile">个人主页</el-menu-item>
             <el-menu-item index="/my-products">我的商品</el-menu-item>
             <el-menu-item index="/my-orders">我的订单</el-menu-item>
+            <el-menu-item index="/favorites">我的收藏</el-menu-item>
             <el-menu-item @click="logout">退出登录</el-menu-item>
           </el-sub-menu>
         </template>
