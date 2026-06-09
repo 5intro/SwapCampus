@@ -8,6 +8,7 @@ from django.utils import timezone
 
 from apps.products.models import Product
 from apps.transactions.models import FaceConfirm, Order, Review
+from apps.users.services import create_notification
 
 # ── 状态转换规则 ───────────────────────────────────────────
 # pending 可以转换到的状态
@@ -91,24 +92,58 @@ def transition_order(order: Order, new_status_str: str, user, **kwargs) -> Order
             setattr(order, field, value)
 
     # ── 触发副作用 ──────────────────────────────────────
-    if new_status_str == Order.Status.CANCELLED:
+    if new_status_str == Order.Status.PENDING:
+        create_notification(
+            order.seller, "new_order",
+            "新订单",
+            f"{user.get_display_name()} 购买了《{order.product.title}》",
+            related_order=order, related_product=order.product,
+        )
+
+    elif new_status_str == Order.Status.ACCEPTED:
+        create_notification(
+            order.buyer, "order_update",
+            "订单已接受",
+            f"卖家已接受你的订单，请准备面交",
+            related_order=order, related_product=order.product,
+        )
+
+    elif new_status_str == Order.Status.REJECTED:
+        create_notification(
+            order.buyer, "order_update",
+            "订单已拒绝",
+            f"卖家拒绝了你的订单",
+            related_order=order, related_product=order.product,
+        )
+
+    elif new_status_str == Order.Status.CANCELLED:
         order.cancel_by = user
-        # 恢复商品状态
         Product.objects.filter(pk=order.product_id).update(
             status=Product.Status.ACTIVE
         )
-        # 取消方扣 2 分
         _add_credit(user, "cancel_order", f"取消订单 #{order.id.hex[:8]}", order)
+        other = order.buyer if user.id == order.seller_id else order.seller
+        create_notification(
+            other, "order_update",
+            "订单已取消",
+            f"{user.get_display_name()} 取消了订单",
+            related_order=order, related_product=order.product,
+        )
 
     elif new_status_str == Order.Status.COMPLETED:
         order.completed_at = timezone.now()
-        # 买卖双方各 +5 分
         _add_credit(order.buyer, "order_complete", f"完成交易 #{order.id.hex[:8]}", order)
         _add_credit(order.seller, "order_complete", f"完成交易 #{order.id.hex[:8]}", order)
-        # 商品标记为已售
         Product.objects.filter(pk=order.product_id).update(
             status=Product.Status.SOLD
         )
+        for party in (order.buyer, order.seller):
+            create_notification(
+                party, "order_update",
+                "交易完成",
+                "订单已完成，请互相评价",
+                related_order=order, related_product=order.product,
+            )
 
     order.save()
     return order
@@ -166,6 +201,14 @@ def create_review(order: Order, reviewer, rating: int, content: str = "") -> Rev
     elif rating <= 2:
         _add_credit(reviewee, "bad_review", f"获得差评 (订单 #{order.id.hex[:8]})", order)
 
+    # 通知被评价人
+    create_notification(
+        reviewee, "new_review",
+        "收到新评价",
+        f"{reviewer.get_display_name()} 给你打了 {rating} 星",
+        related_order=order, related_product=order.product,
+    )
+
     return review
 
 
@@ -177,17 +220,18 @@ def generate_face_confirm_code() -> str:
 @db_transaction.atomic
 def create_face_confirm(order: Order, created_by) -> FaceConfirm:
     """生成面交确认码（卖家操作）."""
-    if order.status != Order.Status.ACCEPTED:
-        raise ValueError("只能在已接受状态下生成面交确认码")
     if created_by.id != order.seller_id:
         raise ValueError("只有卖家可以生成面交确认码")
 
-    # 如果已有未过期的确认码，复用
+    # 如果已有未过期的确认码，复用（支持页面切换后重新获取）
     existing = FaceConfirm.objects.filter(
         order=order, status=FaceConfirm.Status.PENDING
     ).first()
     if existing:
         return existing
+
+    if order.status != Order.Status.ACCEPTED:
+        raise ValueError("只能在已接受状态下生成面交确认码")
 
     code = generate_face_confirm_code()
     face_confirm = FaceConfirm.objects.create(

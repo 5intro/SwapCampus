@@ -1,21 +1,33 @@
 <script setup>
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
+import { useNotificationsStore } from '@/stores/notifications'
 import { ElMessage } from 'element-plus'
 import { Search, Bell } from '@element-plus/icons-vue'
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const auth = useAuthStore()
 const chat = useChatStore()
+const notifStore = useNotificationsStore()
 const router = useRouter()
 const searchKeyword = ref('')
 const showMobileMenu = ref(false)
+let pollTimer = null
 
 onMounted(() => {
   if (auth.isLoggedIn) {
     chat.fetchConversations()
+    notifStore.fetchUnreadCount()
+    pollTimer = setInterval(() => {
+      chat.fetchConversations()
+      notifStore.fetchUnreadCount()
+    }, 30000)
   }
+})
+
+onUnmounted(() => {
+  if (pollTimer) clearInterval(pollTimer)
 })
 
 function goSearch() {
@@ -40,10 +52,12 @@ function logout() {
   >
     <div class="navbar-inner">
       <div class="navbar-left">
-        <el-menu-item index="/" class="brand">
-          <span class="brand-icon">&#127795;</span>
-          <span class="brand-text">SwapCampus</span>
-        </el-menu-item>
+        <el-tooltip content="回到首页" placement="bottom" :show-after="500">
+          <el-menu-item index="/" class="brand">
+            <span class="brand-icon">&#127795;</span>
+            <span class="brand-text">SwapCampus</span>
+          </el-menu-item>
+        </el-tooltip>
       </div>
 
       <div class="navbar-center">
@@ -70,6 +84,16 @@ function logout() {
             />
           </el-menu-item>
 
+          <el-menu-item index="/notifications">
+            <el-icon><component :is="Bell" /></el-icon>
+            <span>通知</span>
+            <el-badge
+              v-if="notifStore.unreadCount > 0"
+              :value="notifStore.unreadCount"
+              class="unread-badge"
+            />
+          </el-menu-item>
+
           <el-menu-item index="/publish" class="publish-btn">
             <el-button type="success" round>
               <el-icon><component :is="'Plus'" /></el-icon>
@@ -88,20 +112,28 @@ function logout() {
               </el-avatar>
               <span class="nav-nickname">{{ auth.user?.nickname || auth.user?.username }}</span>
             </template>
+            <el-menu-item v-if="auth.user?.is_staff" index="/admin">后台管理</el-menu-item>
             <el-menu-item index="/profile">个人主页</el-menu-item>
             <el-menu-item index="/my-products">我的商品</el-menu-item>
             <el-menu-item index="/my-orders">我的订单</el-menu-item>
+            <el-menu-item index="/favorites">我的收藏</el-menu-item>
             <el-menu-item @click="logout">退出登录</el-menu-item>
           </el-sub-menu>
         </template>
 
         <template v-else>
-          <el-menu-item index="/login">
-            <el-button text>登录</el-button>
-          </el-menu-item>
-          <el-menu-item index="/register">
-            <el-button type="primary" round size="small">注册</el-button>
-          </el-menu-item>
+          <div class="nav-auth-buttons">
+            <el-button
+              class="btn-login"
+              round
+              @click="$router.push('/login')"
+            >登录</el-button>
+            <el-button
+              type="success"
+              round
+              @click="$router.push('/register')"
+            >注册</el-button>
+          </div>
         </template>
       </div>
     </div>
@@ -186,6 +218,24 @@ function logout() {
   max-width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.nav-auth-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-login {
+  color: var(--color-brand-dark);
+  border-color: var(--color-brand);
+  font-weight: 500;
+}
+
+.btn-login:hover {
+  color: #fff;
+  background: var(--color-brand);
+  border-color: var(--color-brand);
 }
 
 .unread-badge {

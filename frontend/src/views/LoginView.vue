@@ -29,7 +29,7 @@ async function handleLogin() {
     const redirect = route.query.redirect || '/'
     router.push(redirect)
   } catch {
-    ElMessage.error('学号或密码错误')
+    ElMessage.error('用户名或密码错误')
   } finally {
     loading.value = false
   }
@@ -53,12 +53,11 @@ async function handleLogin() {
         size="large"
         @submit.prevent="handleLogin"
       >
-        <el-form-item label="学号" prop="username">
+        <el-form-item label="用户名" prop="username">
           <el-input
             v-model="form.username"
-            placeholder="请输入 8 位学号"
+            placeholder="请输入用户名"
             :prefix-icon="User"
-            maxlength="8"
             autocomplete="username"
           />
         </el-form-item>

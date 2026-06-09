@@ -17,3 +17,13 @@ export function getUser(id) {
 export function getCreditRecords(id) {
   return client.get(`/users/${id}/credit-records/`)
 }
+
+export function uploadStudentIdCard(formData) {
+  return client.post('/users/me/verify/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export function getVerificationStatus() {
+  return client.get('/users/me/verify/')
+}

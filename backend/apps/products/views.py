@@ -1,5 +1,6 @@
 """商品模块 API 视图."""
 
+from django.contrib.auth import get_user_model
 from django.db.models import F, QuerySet
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import mixins, status, viewsets
@@ -8,18 +9,24 @@ from rest_framework.permissions import AllowAny, IsAuthenticated, IsAuthenticate
 from rest_framework.response import Response
 
 from apps.products.filters import ProductFilter
-from apps.products.models import Category, Product, Tag
+from apps.products.models import Category, Favorite, Product, Report, Tag
 from apps.products.serializers import (
     CategorySerializer,
+    FavoriteCreateSerializer,
+    FavoriteSerializer,
     ProductCreateSerializer,
     ProductDetailSerializer,
     ProductListSerializer,
     ProductUpdateSerializer,
+    ReportCreateSerializer,
+    ReportSerializer,
     TagSerializer,
 )
 from apps.products.services import change_product_status
 from core.permissions import IsOwner
 from core.utils import build_success_response
+
+User = get_user_model()
 
 
 @extend_schema_view(
@@ -94,6 +101,16 @@ class ProductViewSet(
         return Response(build_success_response(serializer.data))
 
     def create(self, request, *args, **kwargs):
+        # 非管理员用户需完成学生证认证后才能发布商品
+        if not request.user.is_staff and request.user.verification_status != User.VerificationStatus.APPROVED:
+            return Response(
+                {
+                    "success": False,
+                    "data": None,
+                    "error": {"code": "NOT_VERIFIED", "message": "请先完成学生证认证后再发布商品"},
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)
@@ -156,6 +173,34 @@ class ProductViewSet(
         change_product_status(product, Product.Status.ACTIVE)
         return Response(build_success_response({"status": product.status}))
 
+    @extend_schema(summary="相关商品推荐", description="获取与指定商品相关的其他在售商品")
+    @action(detail=True, methods=["get"], permission_classes=[AllowAny])
+    def related(self, request, id=None):
+        product = self.get_object()
+        qs = (
+            Product.objects.filter(status=Product.Status.ACTIVE)
+            .exclude(id=product.id)
+            .filter(category=product.category)
+            .select_related("seller", "category")
+            .prefetch_related("images", "tags")
+        )
+        count = qs.count()
+        if count < 4:
+            # 同分类不足，补充最新商品
+            fallback = (
+                Product.objects.filter(status=Product.Status.ACTIVE)
+                .exclude(id=product.id)
+                .exclude(category=product.category)
+                .select_related("seller", "category")
+                .prefetch_related("images", "tags")
+                .order_by("-created_at")[:4]
+            )
+            qs = list(qs) + list(fallback)
+            serializer = ProductListSerializer(qs[:6], many=True, context={"request": request})
+        else:
+            serializer = ProductListSerializer(qs[:6], many=True, context={"request": request})
+        return Response(build_success_response(serializer.data))
+
 
 @extend_schema_view(
     list=extend_schema(summary="分类列表", description="获取所有商品分类（含子级）"),
@@ -191,3 +236,111 @@ class TagViewSet(
     queryset = Tag.objects.all()
     serializer_class = TagSerializer
     permission_classes = [AllowAny]
+
+
+class FavoriteViewSet(
+    mixins.ListModelMixin,
+    mixins.CreateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
+    """收藏 ViewSet.
+
+    - GET    /api/products/favorites/       → 我的收藏列表
+    - POST   /api/products/favorites/       → 添加收藏
+    - DELETE /api/products/favorites/{id}/  → 取消收藏
+    """
+
+    permission_classes = [IsAuthenticated]
+    lookup_field = "id"
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return FavoriteCreateSerializer
+        return FavoriteSerializer
+
+    def get_queryset(self):
+        return (
+            Favorite.objects.filter(user=self.request.user)
+            .select_related("product")
+            .prefetch_related("product__images")
+        )
+
+    def create(self, request, *args, **kwargs):
+        serializer = FavoriteCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        product_id = serializer.validated_data["product_id"]
+
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response(
+                {"success": False, "error": {"message": "商品不存在"}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        fav, created = Favorite.objects.get_or_create(
+            user=request.user, product=product
+        )
+        if not created:
+            # Already favorited, return it as success
+            output = FavoriteSerializer(fav, context={"request": request})
+            return Response(build_success_response(output.data))
+
+        output = FavoriteSerializer(fav, context={"request": request})
+        return Response(
+            build_success_response(output.data),
+            status=status.HTTP_201_CREATED,
+        )
+
+    def check_object_permissions(self, request, obj):
+        if obj.user_id != request.user.id:
+            self.permission_denied(request)
+
+
+class ReportViewSet(
+    mixins.CreateModelMixin,
+    viewsets.GenericViewSet,
+):
+    """举报 ViewSet.
+
+    - POST /api/products/reports/ → 举报商品
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action == "create":
+            return ReportCreateSerializer
+        return ReportSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = ReportCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        product_id = serializer.validated_data["product_id"]
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return Response(
+                {"success": False, "error": {"message": "商品不存在"}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        if product.seller == request.user:
+            return Response(
+                {"success": False, "error": {"message": "不能举报自己的商品"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        report = Report.objects.create(
+            reporter=request.user,
+            product=product,
+            reason=serializer.validated_data["reason"],
+            description=serializer.validated_data.get("description", ""),
+        )
+        output = ReportSerializer(report, context={"request": request})
+        return Response(
+            build_success_response(output.data),
+            status=status.HTTP_201_CREATED,
+        )

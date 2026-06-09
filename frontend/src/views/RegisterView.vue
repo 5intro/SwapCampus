@@ -65,11 +65,10 @@ async function handleRegister() {
         size="large"
         @submit.prevent="handleRegister"
       >
-        <el-form-item label="学号" prop="username" :rules="[studentIdRule]">
+        <el-form-item label="用户名" prop="username" :rules="[studentIdRule]">
           <el-input
             v-model="form.username"
-            placeholder="输入 8 位学号"
-            maxlength="8"
+            placeholder="输入用户名"
           />
         </el-form-item>
 

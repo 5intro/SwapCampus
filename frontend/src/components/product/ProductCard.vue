@@ -10,6 +10,7 @@ const props = defineProps({
 })
 
 const router = useRouter()
+defineEmits(['toggleFavorite'])
 
 function goDetail() {
   router.push(`/product/${props.product.id}`)
@@ -17,10 +18,8 @@ function goDetail() {
 </script>
 
 <template>
-  <el-card
-    shadow="hover"
+  <article
     class="product-card"
-    :body-style="{ padding: '0' }"
     @click="goDetail"
   >
     <div class="card-image-wrap">
@@ -33,12 +32,12 @@ function goDetail() {
       >
         <template #error>
           <div class="image-placeholder">
-            <el-icon :size="40"><component :is="'Picture'" /></el-icon>
+            <el-icon :size="36"><component :is="'Picture'" /></el-icon>
           </div>
         </template>
       </el-image>
       <div v-else class="image-placeholder">
-        <el-icon :size="40"><component :is="'Picture'" /></el-icon>
+        <el-icon :size="36"><component :is="'Picture'" /></el-icon>
       </div>
 
       <el-tag
@@ -46,12 +45,24 @@ function goDetail() {
         :type="conditionColors[product.condition] || 'info'"
         size="small"
         class="condition-tag"
+        effect="plain"
       >
         {{ conditionLabels[product.condition] || product.condition_display }}
       </el-tag>
 
+      <el-button
+        class="fav-btn"
+        :class="{ 'is-fav': product.is_favorited }"
+        :icon="product.is_favorited ? 'StarFilled' : 'Star'"
+        circle
+        size="small"
+        @click.stop="$emit('toggleFavorite', product)"
+      />
+
       <div v-if="product.status !== 'active'" class="status-overlay">
-        <el-tag type="info" size="large">已售出</el-tag>
+        <el-tag type="info" size="large" effect="plain">
+          {{ product.status === 'sold' ? '已售出' : product.status === 'hidden' ? '已下架' : '已预定' }}
+        </el-tag>
       </div>
     </div>
 
@@ -75,7 +86,7 @@ function goDetail() {
         <span class="card-time">{{ formatTime(product.created_at) }}</span>
       </div>
     </div>
-  </el-card>
+  </article>
 </template>
 
 <style scoped>
@@ -83,12 +94,19 @@ function goDetail() {
   cursor: pointer;
   border-radius: var(--radius-lg);
   overflow: hidden;
-  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.3s ease;
 }
 
 .product-card:hover {
   transform: translateY(-4px);
-  box-shadow: var(--shadow-hover);
+  box-shadow: var(--shadow-green);
+}
+
+.product-card:active {
+  transform: translateY(-2px) scale(0.99);
 }
 
 .card-image-wrap {
@@ -105,6 +123,11 @@ function goDetail() {
   left: 0;
   width: 100%;
   height: 100%;
+  transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.product-card:hover .card-image {
+  transform: scale(1.05);
 }
 
 .image-placeholder {
@@ -122,8 +145,9 @@ function goDetail() {
 
 .condition-tag {
   position: absolute;
-  top: 8px;
-  left: 8px;
+  top: 10px;
+  left: 10px;
+  backdrop-filter: blur(4px);
 }
 
 .status-overlay {
@@ -132,7 +156,8 @@ function goDetail() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(2px);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -164,7 +189,7 @@ function goDetail() {
 .card-price {
   font-size: 18px;
   font-weight: 700;
-  color: #e65100;
+  color: var(--color-price);
 }
 
 .card-original-price {
@@ -189,5 +214,18 @@ function goDetail() {
 
 .seller-avatar {
   font-size: 12px;
+}
+
+.fav-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(4px);
+}
+
+.fav-btn.is-fav {
+  color: #f5a623;
 }
 </style>

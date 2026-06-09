@@ -13,6 +13,8 @@ env/
 
 # Django
 backend/media/uploads/*
+backend/media/avatars/*
+backend/media/student_id_cards/*
 !backend/media/.gitkeep
 backend/static/collected/
 *.log

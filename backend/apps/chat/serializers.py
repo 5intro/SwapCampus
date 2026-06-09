@@ -25,6 +25,8 @@ class MessageSerializer(serializers.ModelSerializer):
             "sender_name",
             "content",
             "is_read",
+            "is_recalled",
+            "recalled_at",
             "created_at",
         ]
         read_only_fields = [
@@ -33,11 +35,20 @@ class MessageSerializer(serializers.ModelSerializer):
             "sender",
             "sender_name",
             "is_read",
+            "is_recalled",
+            "recalled_at",
             "created_at",
         ]
 
     def get_sender_name(self, obj) -> str:
         return obj.sender.get_display_name()
+
+    def to_representation(self, instance):
+        """撤回的消息返回撤回提示文本."""
+        data = super().to_representation(instance)
+        if instance.is_recalled:
+            data["content"] = "该消息已被撤回"
+        return data
 
 
 # ═══════════════════════════════════════════════════════════

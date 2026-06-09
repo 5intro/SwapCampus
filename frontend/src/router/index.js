@@ -18,8 +18,18 @@ const routes = [
     meta: { layout: 'default' },
   },
   {
+    path: '/product/:id/edit',
+    component: () => import('@/views/EditProductView.vue'),
+    meta: { layout: 'default', requiresAuth: true },
+  },
+  {
     path: '/publish',
     component: () => import('@/views/PublishView.vue'),
+    meta: { layout: 'default', requiresAuth: true, requiresVerification: true },
+  },
+  {
+    path: '/verify-student',
+    component: () => import('@/views/VerifyStudentView.vue'),
     meta: { layout: 'default', requiresAuth: true },
   },
   {
@@ -53,6 +63,21 @@ const routes = [
     meta: { layout: 'default', requiresAuth: true },
   },
   {
+    path: '/favorites',
+    component: () => import('@/views/FavoritesView.vue'),
+    meta: { layout: 'default', requiresAuth: true },
+  },
+  {
+    path: '/notifications',
+    component: () => import('@/views/NotificationsView.vue'),
+    meta: { layout: 'default', requiresAuth: true },
+  },
+  {
+    path: '/admin',
+    component: () => import('@/views/AdminDashboardView.vue'),
+    meta: { layout: 'default', requiresAuth: true, requiresAdmin: true },
+  },
+  {
     path: '/login',
     component: () => import('@/views/LoginView.vue'),
     meta: { layout: 'blank', guest: true },
@@ -81,6 +106,10 @@ router.beforeEach((to, from, next) => {
 
   if (to.meta.requiresAuth && !auth.isLoggedIn) {
     next({ path: '/login', query: { redirect: to.fullPath } })
+  } else if (to.meta.requiresAdmin && !auth.user?.is_staff) {
+    next('/')
+  } else if (to.meta.requiresVerification && auth.user && !auth.user.is_staff && auth.user.verification_status !== 'approved') {
+    next('/verify-student')
   } else if (to.meta.guest && auth.isLoggedIn) {
     next('/')
   } else {

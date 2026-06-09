@@ -73,21 +73,21 @@ SwapCampus/
 │   │   │   ├── services.py         # 订单状态机（6状态 8+转换）、评价逻辑、面交确认
 │   │   │   ├── admin.py            # OrderAdmin, ReviewAdmin, FaceConfirmAdmin
 │   │   │   └── tests/              # 25 个测试用例（订单/状态机/面交/评价/积分联动）
-│   │   ├── chat/                   # M5 站内通讯（✅ 后端A 已实现）
+│   │   ├── chat/                   # M5 站内通讯（✅ 后端A 已实现 + 消息撤回）
 │   │   │   ├── apps.py             # AppConfig
-│   │   │   ├── models.py           # Conversation, Message
-│   │   │   ├── consumers.py        # ChatConsumer（WebSocket 实时收发/已读/在线状态）
-│   │   │   ├── serializers.py     # ConversationList/Detail/Create, Message
-│   │   │   ├── views.py            # ConversationViewSet（CRUD/消息/已读）
-│   │   │   ├── urls.py             # API 路由（conversations/.../messages|read）
+│   │   │   ├── models.py           # Conversation, Message（含 is_recalled, recalled_at 撤回字段）
+│   │   │   ├── consumers.py        # ChatConsumer（WebSocket 收发/已读/在线/撤回消息）
+│   │   │   ├── serializers.py     # ConversationList/Detail/Create, Message（撤回内容转换）
+│   │   │   ├── views.py            # ConversationViewSet（CRUD/消息/已读/撤回消息 3 分钟窗口）
+│   │   │   ├── urls.py             # API 路由（conversations/.../messages|read|recall）
 │   │   │   ├── admin.py            # Django Admin 定制
 │   │   │   └── tests/              # 14 个测试用例（会话/消息/已读/权限）
-│   │   └── admin_panel/            # M6 Django Admin 定制（✅ 后端B 已实现）
+│   │   └── admin_panel/            # M6 后台管理（✅ 后端B 已实现 + 管理 API 扩展）
 │   │       ├── apps.py             # AppConfig
-│   │       ├── urls.py             # Dashboard API 路由
+│   │       ├── urls.py             # Dashboard + Products + Reports + Users API 路由
 │   │       ├── admin.py            # 跨模块 Admin 增强（Product/User/Order 批量操作 + CreditRecordInline）
 │   │       ├── actions.py          # 批量操作实现（approve_products/hide_products/ban_users/cancel_orders_admin）
-│   │       ├── views.py            # DashboardView（total_users/active_products/pending_orders/completed_orders/recent_registrations）
+│   │       ├── views.py            # DashboardView + AdminProductListView + AdminReportListView + AdminUserListView
 │   │       └── tests/              # 4 个测试用例（Dashboard/批量操作）
 │   ├── core/                       # 共享基础设施
 │   │   ├── models.py               # BaseModel（UUID pk, created_at, updated_at）
@@ -116,7 +116,8 @@ SwapCampus/
 │   │   │   ├── MyProducts.vue      # 我的商品
 │   │   │   ├── MyOrders.vue        # 我的订单
 │   │   │   ├── LoginView.vue       # 登录
-│   │   │   └── RegisterView.vue    # 注册
+│   │   │   ├── RegisterView.vue    # 注册
+│   │   │   └── AdminDashboardView.vue  # 管理员后台（数据看板/商品审核/举报处理/用户管理）
 │   │   ├── components/             # 可复用组件
 │   │   │   ├── layout/             # 布局组件（Navbar, Footer, Sidebar）
 │   │   │   ├── product/            # 商品卡片、商品列表
@@ -132,8 +133,9 @@ SwapCampus/
 │   │   │   ├── auth.js             # 认证接口
 │   │   │   ├── products.js         # 商品接口
 │   │   │   ├── transactions.js     # 交易接口
-│   │   │   ├── chat.js             # 聊天 REST 接口
-│   │   │   └── users.js            # 用户接口
+│   │   │   ├── chat.js             # 聊天 REST 接口（含 recallMessage 撤回）
+│   │   │   ├── users.js            # 用户接口
+│   │   │   └── admin.js            # 管理后台接口（仪表盘/商品/举报/用户）
 │   │   ├── router/
 │   │   │   └── index.js            # Vue Router 路由配置
 │   │   ├── utils/                  # 工具函数
@@ -147,6 +149,8 @@ SwapCampus/
 │   ├── vite.config.js              # Vite 配置（代理到 Django）
 │   └── package.json
 │
+├── deploy.bat                       # Windows Server 一键部署脚本
+├── .agents/skills/                  # taste-skill 设计框架（13 个 skill）
 ├── docker/                         # 容器化配置
 │   ├── Dockerfile.backend          # Django 后端镜像
 │   ├── Dockerfile.frontend         # Nginx + 前端构建产物
@@ -175,9 +179,9 @@ SwapCampus/
 
 ---
 
-## 前端 UI — 已实现（2026-06-04）
+## 前端 UI — 已实现（2026-06-06 更新）
 
-> 前端已完整搭建。使用 **ux-skill v3.1** 设计智能引擎辅助设计决策。
+> 前端已完整搭建。使用 **taste-skill**（Leonxlnx/taste-skill 28.5K stars）设计智能引擎辅助设计决策。
 > 安装: `npm install && npm run dev`
 
 ### 设计系统
@@ -185,12 +189,19 @@ SwapCampus/
 | Token | 值 | 来源 |
 |-------|-----|------|
 | 主色调 | `#43a047` 森林绿 | 北林校园主题 |
-| 强调色 | `#ff9800` 暖橙（价格/CTA） | uxskill warm palette |
-| 圆角 | 8px / 12px / 24px(pill) | uxskill radius 预设 |
-| 动效 | `fade-up-12px` 360ms ease-cinema | uxskill motion preset |
+| 强调色 | `#e65100` 暖橙（价格） | taste-skill color calibration |
+| 圆角 | 8px / 12px / 16px | CSS 变量 |
+| 动效 | `cubic-bezier(0.16, 1, 0.3, 1)` 250-400ms | taste-skill motion preset |
 | 字体 | 系统默认（PingFang SC） | 校园网性能优先 |
-| 卡片阴影 | `0 2px 12px rgba(0,0,0,0.06)` | — |
-| 反AI-Slop | 无紫蓝渐变、无"John Doe"、无3等宽卡片 | uxskill 152规则 |
+| 卡片阴影 | `0 4px 16px rgba(67,160,71,0.12)` 绿色调 | — |
+| 反AI-Slop | 无紫蓝渐变、无 emoji 装饰、无 em-dash、无 Inter 字体 | taste-skill 规则 |
+
+### App.vue 布局系统
+
+App.vue 根据路由 `meta.layout` 自动渲染 Navbar 和 Footer：
+- `layout: 'default'` → Navbar + 内容 + Footer
+- `layout: 'blank'` → 仅内容（登录/注册页）
+- `layout: 'chat'` → Navbar + 全高内容
 
 ### 已实现页面
 
@@ -200,13 +211,15 @@ SwapCampus/
 | 搜索与筛选 | `views/SearchView.vue` | ✅ |
 | 商品详情 | `views/ProductDetail.vue` | ✅ |
 | 发布商品 | `views/PublishView.vue` | ✅ |
+| 学生证认证 | `views/VerifyStudentView.vue` | ✅ |
 | 聊天列表 | `views/ChatList.vue` | ✅ (10s 轮询) |
-| 聊天对话 | `views/ChatView.vue` | ✅ (WebSocket + 轮询) |
-| 个人主页（资料+商品+订单+积分） | `views/ProfileView.vue` | ✅ |
+| 聊天对话 | `views/ChatView.vue` | ✅ (WebSocket + 轮询 + 撤回) |
+| 个人主页（资料+商品+订单+积分+认证状态） | `views/ProfileView.vue` | ✅ |
 | 我的商品 | `views/MyProducts.vue` | ✅ |
 | 我的订单（完整状态机流程） | `views/MyOrders.vue` | ✅ |
 | 登录 | `views/LoginView.vue` | ✅ |
 | 注册 | `views/RegisterView.vue` | ✅ |
+| 管理员后台（数据看板/商品审核/举报处理/用户管理/学生证审核） | `views/AdminDashboardView.vue` | ✅ |
 
 ### 已实现组件
 
@@ -238,6 +251,7 @@ SwapCampus/
 
 - **JWT 自动刷新**: 请求 401 → 用 refresh token 换新 access → 重试原请求
 - **聊天**: WebSocket 主通道 + 8s REST 轮询兜底，断线 3s 自动重连
+- **已读/未读**: 消息气泡显示已读/未读标签，打开会话自动标记已读并 WebSocket 实时同步给对方，Navbar 未读徽标 15s 轮询刷新
 - **订单状态机**: 前端完整对应后端 6 状态：pending → accepted/rejected → face_confirm → completed
 - **面交确认码**: 卖家生成 6 位码 → 买家输入验证 → 双方确认完成
 - **信用积分**: CreditBadge 组件自动计算等级颜色（excellent/good/fair/poor）
@@ -253,7 +267,7 @@ SwapCampus/
 |------|------|---------|
 | 后端 A | J0rthan | **users + chat**（M1+M5）JWT 认证、用户 CRUD、信用积分、Django Channels WebSocket、会话管理 |
 | 后端 B | __xingyeyu______ | **products + transactions + admin_panel**（M2+M3+M4+M6）商品 CRUD、搜索 API、django-filter 筛选、订单状态机、评价、Django Admin 定制、数据看板 |
-| 前端 A | Claude AI | **全部用户端页面 + 基础设施** 11 个页面、15 个组件、3个 Pinia Store、完整 API 层、路由守卫、WebSocket 聊天、响应式适配（ux-skill 辅助设计） |
+| 前端 A | Claude AI | **全部用户端页面 + 基础设施** 11 个页面、15 个组件、3个 Pinia Store、完整 API 层、路由守卫、WebSocket 聊天、响应式适配（taste-skill 辅助设计） |
 | 前端 B | ________ | **代码审查 + 功能测试** 验证 API 对接、边界用例、移动端适配 |
 
 ### 备份机制
@@ -378,9 +392,11 @@ chore: 杂项          chore: update docker-compose.yml
 - UUID 由应用层生成（`uuid.uuid4`），不依赖数据库
 
 ### 用户模型
-- 自定义 `User` 扩展 `AbstractUser`，`username` 存储学号（8 位数字，正则校验）
+- 自定义 `User` 扩展 `AbstractUser`，`username` 存储用户名（不再限制长度和格式）
 - `credit_score` 初始 100 分，通过 `CreditRecord` 记录每次变更
 - 信用等级按分数自动计算：`excellent(≥150)` / `good(≥100)` / `fair(≥60)` / `poor(<60)`
+- **学生证认证**：`verification_status` 字段控制发布权限（unverified → pending → approved/rejected），非管理员用户必须上传学生证并通过审核后才能发布商品
+- `student_id_card` 存储学生证照片，`verification_note` 记录管理员审核备注
 
 ### 信用分并发安全
 - `services.add_credit_record()` 使用 `select_for_update` 行锁 + `@transaction.atomic`
@@ -419,6 +435,8 @@ chore: 杂项          chore: update docker-compose.yml
 | GET | `/{id}/` | 用户详情（公开信息） | 可选 |
 | GET | `/me/` | 当前用户完整信息 | JWT |
 | PATCH | `/me/` | 更新当前用户信息 | JWT |
+| POST | `/me/verify/` | 上传学生证（状态 → pending） | JWT |
+| GET | `/me/verify/` | 查询认证状态 | JWT |
 | GET | `/{id}/credit-records/` | 积分变更记录 | JWT |
 
 ### 站内通讯（`/api/chat/`）
@@ -431,6 +449,20 @@ chore: 杂项          chore: update docker-compose.yml
 | GET | `/conversations/{id}/messages/` | 分页历史消息 | JWT |
 | POST | `/conversations/{id}/messages/` | 发送消息（REST） | JWT |
 | POST | `/conversations/{id}/read/` | 标记已读 | JWT |
+| POST | `/conversations/{id}/messages/{msg_id}/recall/` | 撤回消息（3 分钟内） | JWT(发送者) |
+
+### 商品模块（`/api/products/`）
+
+| 方法 | 路径 | 说明 | 鉴权 |
+|------|------|------|------|
+| GET | `/` | 商品列表（支持筛选 `?seller=&category=&status=&sort_by=`） | 可选 |
+| POST | `/` | 发布商品 | JWT |
+| GET | `/{id}/` | 商品详情 | 可选 |
+| PATCH | `/{id}/` | 更新商品（含 status 下架） | JWT(卖家) |
+| DELETE | `/{id}/` | 删除商品 | JWT(卖家) |
+| GET | `/my/` | 我的商品 | JWT |
+| GET | `/categories/` | 分类列表 | 无 |
+| GET | `/tags/` | 标签列表 | 无 |
 
 ### WebSocket
 
@@ -444,10 +476,27 @@ chore: 杂项          chore: update docker-compose.yml
 |------|------|------|
 | `chat_message` | 客户端→服务端 | 发送消息 |
 | `new_message` | 服务端→客户端 | 广播新消息 |
-| `mark_read` | 客户端→服务端 | 标记已读 |
-| `messages_read` | 服务端→客户端 | 通知已读 |
+| `mark_read` | 客户端→服务端 | 按消息ID批量标记已读 |
+| `read_conversation` | 客户端→服务端 | 标记整个会话已读（自动查找对方未读消息） |
+| `messages_read` | 服务端→客户端 | 通知已读（携带 message_ids） |
 | `typing` | 双向 | 输入状态 |
 | `user_status` | 服务端→客户端 | 在线/离线状态 |
+| `recall_message` | 客户端→服务端 | 撤回消息（3 分钟内） |
+| `message_recalled` | 服务端→客户端 | 通知消息已被撤回 |
+
+### 后台管理（`/api/admin/`）
+
+| 方法 | 路径 | 说明 | 鉴权 |
+|------|------|------|------|
+| GET | `/dashboard/` | 管理仪表盘（用户/商品/订单/举报统计） | JWT(staff) |
+| GET | `/products/` | 商品列表（支持筛选、搜索、分页） | JWT(staff) |
+| POST | `/products/{id}/{action}/` | 商品操作（approve/hide/delete） | JWT(staff) |
+| GET | `/reports/` | 举报列表（支持状态筛选） | JWT(staff) |
+| POST | `/reports/{id}/handle/` | 处理举报（resolve/dismiss） | JWT(staff) |
+| GET | `/users/` | 用户列表（支持搜索、分页） | JWT(staff) |
+| POST | `/users/{id}/manage/` | 管理用户（ban/unban） | JWT(staff) |
+| GET | `/verifications/` | 学生证认证列表（支持状态筛选） | JWT(staff) |
+| POST | `/verifications/{id}/review/` | 审核学生证（approve/reject） | JWT(staff) |
 
 ---
 
@@ -571,6 +620,7 @@ python -m venv venv
 source venv/bin/activate             # Windows: venv\Scripts\activate
 pip install -r requirements/dev.txt
 python manage.py migrate
+python manage.py seed_products          # 初始化分类和标签数据
 python manage.py runserver           # 开发用 WSGI；如需 WebSocket 功能使用 Daphne/uvicorn
 
 # 3. 前端
@@ -590,6 +640,32 @@ ruff format .     # 自动格式化
 docker compose -f docker/docker-compose.yml up -d
 ```
 
+### Windows Server 直接部署
+
+> 阿里云 ECS 不支持嵌套虚拟化，生产环境使用 Waitress（Windows 兼容的 WSGI 服务器）代替 gunicorn。
+
+```batch
+:: 将项目文件复制到 C:\SwapCampus\
+:: 确保 .env 放在 C:\SwapCampus\ （与 deploy.bat 同目录）
+cd C:\SwapCampus
+deploy.bat
+```
+
+部署后 Nginx 指向 `C:\SwapCampus\frontend\dist` 提供前端，反向代理 `/api/` 到 `127.0.0.1:8000`。
+
+### 部署更新（仅替换修改的文件夹）
+
+```powershell
+# 前端：替换 src/ 和 public/ 后
+cd C:\SwapCampus\frontend
+npm run build
+
+# 后端：替换 apps/ 和 core/ 后重启
+Ctrl+C
+venv\Scripts\activate
+waitress-serve --port=8000 config.wsgi:application
+```
+
 ---
 
 ## 课程关键节点
@@ -603,6 +679,86 @@ docker compose -f docker/docker-compose.yml up -d
 | 测试 | D10-D11 | 集成+性能+安全测试 | D-06 |
 | 部署 | D12 | 容器化+用户手册 | D-07, D-08 |
 | 验收 | D13-D14 | 答辩+归档 | D-09, D-10, D-11, T-04, T-05 |
+
+---
+
+## 更新日志
+
+### 2026-06-09 — 学生证上传 URL 修复
+
+**问题**：学生证上传时前端显示「网络错误」，上传请求失败。
+
+**根因**：后端 `UserViewSet` 中 `verify` action 未指定 `url_path`，DRF SimpleRouter 将其路由为 `POST /api/users/verify/`，而前端调用的是 `POST /api/users/me/verify/`。URL 不匹配导致 Django 返回 404 HTML 页面，axios 拦截器解析不到 `response.data.detail` 字段，回退显示泛化的「网络错误」提示。
+
+**修复**：`backend/apps/users/views.py` 第 169 行，`@action(detail=False, methods=["post"], ...)` → `@action(detail=False, methods=["post"], url_path="me/verify", ...)`，使后端 URL 与前端调用路径一致。`@verify.mapping.get` 会自动继承同一 `url_path`，因此 GET 查询认证状态也同步修复为 `/api/users/me/verify/`。
+
+### 2026-06-09 — 学生证认证 + 用户名限制移除
+
+**用户名限制移除**
+- 后端 `RegisterSerializer` 不再限制 username 为 8-9 位数字（移除 `validate_username` 正则校验和 `min_length`/`max_length` 约束）
+- 前端 `validators.js` 的 `studentIdRule` 移除 pattern 正则，仅保留非空校验
+- 前端 `RegisterView.vue` 移除 `maxlength="9"`，标签由"学号"改为"用户名"
+
+**学生证认证审核**
+- 后端 `User` 模型新增 `verification_status`（unverified/pending/approved/rejected）、`student_id_card`（ImageField）、`verification_note` 字段
+- 后端 `UserProfileSerializer` 新增 `verification_status`、`student_id_card`、`verification_note` 字段
+- 后端新增 `StudentIdCardUploadSerializer` 用于上传学生证
+- 后端 `UserViewSet` 新增 `verify` action：POST 上传学生证（状态 → pending）、GET 查询认证状态
+- 后端 `AdminVerificationListView`：GET 待审核列表 + POST 通过/拒绝（附备注）
+- 后端 `ProductViewSet.create` 新增认证检查：非管理员且未通过认证 → 返回 403
+- 前端新增 `VerifyStudentView.vue`：学生证上传页面，展示认证状态（未认证/审核中/已通过/已拒绝）
+- 前端 `router/index.js` 新增 `/verify-student` 路由 + `/publish` 路由增加 `requiresVerification` meta + 路由守卫检查
+- 前端 `AdminDashboardView.vue` 新增"学生证审核"Tab（列表 + 通过/拒绝操作）
+- 前端 `ProfileView.vue` 新增认证状态标签展示
+- 前端 `api/users.js` 新增 `uploadStudentIdCard` 和 `getVerificationStatus`
+- 前端 `api/admin.js` 新增 `getVerifications` 和 `reviewVerification`
+
+### 2026-06-09 — 管理员角色 + 消息撤回
+
+**管理员角色**
+- 新增 `python manage.py seed_admin` 命令，创建默认管理员账号：`administer` / `123456`
+- 后端 `UserProfileSerializer` 新增 `is_staff` 字段，前端可据此判断管理员身份
+- 后端 `admin_panel/views.py` 新增 `AdminProductListView`（商品审核/隐藏/删除）、`AdminReportListView`（举报处理/驳回）、`AdminUserListView`（用户封禁/解封）
+- 后端 `admin_panel/urls.py` 新增对应 API 路由
+- 前端新增 `views/AdminDashboardView.vue`：数据看板（4 个统计卡片 + 最近注册用户）、商品管理（搜索/筛选/审核/隐藏/删除）、举报处理（待处理/已处理/驳回列表）、用户管理（搜索/封禁/解封）
+- 前端新增 `api/admin.js`：仪表盘、商品、举报、用户的完整 API 调用模块
+- 前端 `router/index.js` 新增 `/admin` 路由 + `requiresAdmin` 守卫（仅 `is_staff` 用户可访问）
+- 前端 `Navbar.vue` 用户菜单新增"后台管理"入口（仅管理员可见）
+
+**消息撤回**
+- `Message` 模型新增 `is_recalled`（BooleanField）和 `recalled_at`（DateTimeField），创建迁移 `chat/0003`
+- `MessageSerializer` 的 `content` 改为 `SerializerMethodField`：已撤回消息返回"该消息已被撤回"
+- `ConversationViewSet` 新增 `recall_message` action：验证发送者权限 + 3 分钟时间窗口
+- `ChatConsumer` 新增 `recall_message` WebSocket 消息类型 + `message_recalled` 事件广播
+- 前端 `MessageBubble.vue`：自己消息 3 分钟内显示"撤回"按钮，已撤回消息灰色虚线样式
+- 前端 `ChatView.vue` 处理 `handleRecallMessage`（优先 WebSocket，REST 兜底）和 `message_recalled` WebSocket 事件
+- 前端 `api/chat.js` 新增 `recallMessage` API 函数
+
+### 2026-06-06 — Bug 修复与完善
+
+**种子数据**
+- 新增 `python manage.py seed_products` 命令，初始化 7 大类 + 20 子类的二级分类体系，5 个标签（去除了跟成色重复的"几乎全新""九成新""八成新""功能正常""有瑕疵"）
+- 文件：`apps/products/management/commands/seed_products.py`
+
+**订单筛选修复**（`apps/transactions/views.py`）
+- `OrderViewSet.get_queryset()` 新增 `status` 查询参数过滤，支持逗号分隔多状态。修复了全部/待确认/进行中/已完成 Tab 切换无效的问题。
+
+**取消/拒绝原因**（`apps/transactions/views.py`、`serializers.py`、`frontend/src/views/MyOrders.vue`）
+- 后端 `cancel`/`reject` action 统一读取 `reason` 参数，`OrderListSerializer` 新增 `cancel_reason` 和 `cancel_by` 字段
+- 前端订单卡片新增红色提示条展示取消人 + 原因
+
+**消息气泡布局**（`frontend/src/components/chat/MessageBubble.vue`）
+- 修正为：对方 `[头像][消息]`，自己 `[消息][头像]`
+
+**离开聊天弹"未找到"**（`frontend/src/views/ChatView.vue`）
+- WebSocket close 的 `setTimeout` 未清除导致 3 秒后发无效请求 → 404。新增 `reconnectTimer` 并在 `onUnmounted` 中 clearTimeout
+
+**面交确认码**（`frontend/src/api/transactions.js`、`frontend/src/views/MyOrders.vue`）
+- 修正 API 路径：`generateConfirmCode` 改用 `GET .../face_confirm/`，`verifyConfirmCode` 改用 `POST .../face_confirm/`
+- 确认码生成后持久显示在订单卡片上（绿色大号字体、可选中复制），支持页面刷新后自动恢复、卖家可重新生成
+
+**商品状态标签**（`frontend/src/components/product/ProductCard.vue`）
+- 非 active 状态之前统一显示"已售出"，修正为按实际状态区分：sold→已售出、hidden→已下架、reserved→已预定
 
 ---
 

@@ -161,3 +161,101 @@ class ProductImage(BaseModel):
 
     def __str__(self) -> str:
         return f"{self.product.title} 图片 #{self.sort_order}"
+
+
+class Favorite(BaseModel):
+    """用户收藏.
+
+    每个用户对同一商品只能收藏一次。
+    """
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="favorites",
+        verbose_name="用户",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="favorited_by",
+        verbose_name="商品",
+    )
+
+    class Meta:
+        db_table = "favorites"
+        verbose_name = "收藏"
+        verbose_name_plural = verbose_name
+        ordering = ["-created_at"]
+        unique_together = [("user", "product")]
+
+    def __str__(self) -> str:
+        return f"{self.user.get_display_name()} 收藏了 {self.product.title}"
+
+
+class Report(BaseModel):
+    """商品举报."""
+
+    class Reason(models.TextChoices):
+        INAPPROPRIATE = "inappropriate", "内容不当"
+        COUNTERFEIT = "counterfeit", "假冒伪劣"
+        FRAUD = "fraud", "虚假交易"
+        PROHIBITED = "prohibited", "违禁物品"
+        OTHER = "other", "其他"
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "待处理"
+        RESOLVED = "resolved", "已处理"
+        DISMISSED = "dismissed", "已驳回"
+
+    reporter = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="reports_filed",
+        verbose_name="举报人",
+    )
+    product = models.ForeignKey(
+        Product,
+        on_delete=models.CASCADE,
+        related_name="reports",
+        verbose_name="被举报商品",
+    )
+    reason = models.CharField(
+        max_length=20,
+        choices=Reason.choices,
+        verbose_name="举报原因",
+    )
+    description = models.TextField(
+        max_length=500,
+        blank=True,
+        verbose_name="详细说明",
+    )
+    status = models.CharField(
+        max_length=10,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+        verbose_name="处理状态",
+    )
+    handled_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reports_handled",
+        verbose_name="处理人",
+    )
+    handled_note = models.CharField(
+        max_length=300,
+        blank=True,
+        verbose_name="处理备注",
+    )
+
+    class Meta:
+        db_table = "reports"
+        verbose_name = "商品举报"
+        verbose_name_plural = verbose_name
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        return f"举报 {self.product.title} — {self.get_reason_display()}"

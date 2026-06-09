@@ -105,11 +105,8 @@ async function handleGenerateCode(order) {
   try {
     const res = await generateConfirmCode(order.id)
     const data = res.data.data || res.data
-    await ElMessageBox.alert(`确认码: ${data.confirm_code}`, '面交确认码', {
-      confirmButtonText: '知道了',
-      type: 'success',
-    })
-    loadOrders()
+    order.face_confirm_code = data.confirm_code
+    order.status = 'face_confirm'
   } catch {}
 }
 
@@ -212,6 +209,15 @@ async function submitReview() {
               </span>
               <span v-if="order.meet_location">📍 {{ order.meet_location }}</span>
             </div>
+            <div
+              v-if="order.cancel_reason"
+              class="order-cancel-reason"
+            >
+              <el-icon><component :is="'WarningFilled'" /></el-icon>
+              <span>
+                {{ order.cancel_by ? order.cancel_by + ' 取消' : '取消' }}原因：{{ order.cancel_reason }}
+              </span>
+            </div>
           </div>
 
           <div class="order-actions">
@@ -241,6 +247,24 @@ async function submitReview() {
             >
               生成面交码
             </el-button>
+
+            <!-- Seller: show face confirm code (persists across page switches and after buyer confirms) -->
+            <div
+              v-if="isSeller(order) && (order.status === 'face_confirm' || order.status === 'completed') && order.face_confirm_code"
+              class="face-code-display"
+            >
+              <span class="face-code-label">面交确认码</span>
+              <span class="face-code-value" :class="{ 'code-used': order.status === 'completed' }">{{ order.face_confirm_code }}</span>
+              <el-button
+                v-if="order.status === 'face_confirm'"
+                size="small"
+                text
+                type="primary"
+                @click="handleGenerateCode(order)"
+              >
+                重新生成
+              </el-button>
+            </div>
 
             <!-- Buyer: face_confirm, verify code -->
             <el-button
@@ -357,11 +381,54 @@ async function submitReview() {
   color: #e65100;
 }
 
+.order-cancel-reason {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(245, 34, 45, 0.06);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #e65100;
+}
+
 .order-actions {
   display: flex;
   gap: 8px;
   flex-shrink: 0;
   flex-wrap: wrap;
+}
+
+.face-code-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #e8f5e9, #f1f8e9);
+  border: 1px dashed #66bb6a;
+  border-radius: 8px;
+}
+
+.face-code-label {
+  font-size: 12px;
+  color: #2e7d32;
+  font-weight: 500;
+}
+
+.face-code-value {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1b5e20;
+  letter-spacing: 4px;
+  font-family: 'Courier New', monospace;
+  user-select: all;
+}
+
+.face-code-value.code-used {
+  color: #9e9e9e;
+  text-decoration: line-through;
 }
 
 .review-form label {

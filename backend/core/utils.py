@@ -5,6 +5,7 @@ import uuid
 from io import BytesIO
 from typing import Any
 
+from django.core.files.base import ContentFile
 from PIL import Image
 
 
@@ -18,7 +19,7 @@ def compress_image(
     max_width: int = 1920,
     quality: int = 85,
     fmt: str = "JPEG",
-) -> BytesIO:
+) -> ContentFile:
     """压缩上传的图片.
 
     Args:
@@ -28,7 +29,7 @@ def compress_image(
         fmt: 输出格式
 
     Returns:
-        压缩后的 BytesIO 对象，可直接用于存储
+        压缩后的 ContentFile 对象，可直接用于 Django FileField
     """
     img = Image.open(image_file)
     # 转 RGB（处理 RGBA/PNG）
@@ -42,8 +43,12 @@ def compress_image(
     # 写入内存
     output = BytesIO()
     img.save(output, format=fmt, quality=quality)
-    output.seek(0)
-    return output
+    ext = "jpg" if fmt.upper() == "JPEG" else fmt.lower()
+    name = getattr(image_file, "name", f"image.{ext}")
+    # 确保文件扩展名匹配输出格式
+    if not name.lower().endswith(f".{ext}"):
+        name = f"{name.rsplit('.', 1)[0]}.{ext}" if "." in name else f"{name}.{ext}"
+    return ContentFile(output.getvalue(), name=name)
 
 
 def file_md5(file_obj) -> str:

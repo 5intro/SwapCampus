@@ -29,5 +29,17 @@ export function getTags() {
 }
 
 export function getMyProducts() {
-  return client.get('/products/', { params: { my: true } })
+  return client.get('/products/my/')
+}
+
+export function getUserProducts(userId) {
+  return client.get('/products/', { params: { seller: userId, status: 'active' } })
+}
+
+export function getRelatedProducts(id) {
+  return client.get(`/products/${id}/related/`)
+}
+
+export function deleteProduct(id) {
+  return client.delete(`/products/${id}/`)
 }

@@ -1,10 +1,12 @@
 <script setup>
 import { ref, onMounted } from 'vue'
-import { getMyProducts, updateProduct } from '@/api/products'
+import { getMyProducts, updateProduct, deleteProduct } from '@/api/products'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import ProductCard from '@/components/product/ProductCard.vue'
 import { formatPrice, statusLabels } from '@/utils/format'
+import { useRouter } from 'vue-router'
 
+const router = useRouter()
 const products = ref([])
 const loading = ref(false)
 
@@ -34,6 +36,22 @@ async function handleHide(product) {
   } catch {
     // cancel or error
   }
+}
+
+function handleEdit(product) {
+  router.push(`/product/${product.id}/edit`)
+}
+
+async function handleDelete(product) {
+  try {
+    await ElMessageBox.confirm('确定要删除该商品吗？此操作不可撤销。', '确认删除', {
+      type: 'error',
+      confirmButtonText: '删除',
+    })
+    await deleteProduct(product.id)
+    ElMessage.success('已删除')
+    products.value = products.value.filter(p => p.id !== product.id)
+  } catch {}
 }
 </script>
 

@@ -9,7 +9,7 @@ const props = defineProps({
   currentUserId: { type: String, default: '' },
 })
 
-const emit = defineEmits(['message-sent'])
+const emit = defineEmits(['message-sent', 'recall-message'])
 
 const inputText = ref('')
 const messagesContainer = ref(null)
@@ -61,6 +61,7 @@ async function handleSend() {
         :key="msg.id"
         :message="msg"
         :is-mine="msg.sender === currentUserId"
+        @recall="(msgId) => emit('recall-message', msgId)"
       />
     </div>
 

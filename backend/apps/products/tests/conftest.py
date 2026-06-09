@@ -21,6 +21,7 @@ def user(db):
         username="20210001",
         password="TestPass123!",
         nickname="卖家用户",
+        verification_status="approved",
     )
 
 

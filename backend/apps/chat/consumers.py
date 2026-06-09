@@ -115,8 +115,12 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             await self._handle_chat_message(content)
         elif msg_type == "mark_read":
             await self._handle_mark_read(content)
+        elif msg_type == "read_conversation":
+            await self._handle_read_conversation(content)
         elif msg_type == "typing":
             await self._handle_typing(content)
+        elif msg_type == "recall_message":
+            await self._handle_recall_message(content)
         else:
             logger.warning(f"Unknown message type: {msg_type}")
 
@@ -171,6 +175,22 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 },
             )
 
+    async def _handle_read_conversation(self, content):
+        """处理已读会话：将该会话中对方发的所有未读消息标记为已读."""
+        # 批量标记对方发的未读消息为已读
+        message_ids = await self._mark_conversation_read()
+
+        if message_ids:
+            # 广播已读事件
+            await self.channel_layer.group_send(
+                self.group_name,
+                {
+                    "type": "messages_read",
+                    "reader_id": str(self.user.id),
+                    "message_ids": message_ids,
+                },
+            )
+
     async def _handle_typing(self, content):
         """处理输入状态提醒."""
         is_typing = content.get("is_typing", False)
@@ -181,6 +201,34 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
                 "user_id": str(self.user.id),
                 "username": self.user.get_display_name(),
                 "is_typing": is_typing,
+            },
+        )
+
+    async def _handle_recall_message(self, content):
+        """处理撤回消息：验证权限和时间窗口后广播撤回事件."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        message_id = content.get("message_id", "").strip()
+        if not message_id:
+            await self.send_json({"type": "error", "error": "缺少 message_id"})
+            return
+
+        # 异步验证并执行撤回
+        error = await self._recall_message(message_id)
+        if error:
+            await self.send_json({"type": "error", "error": error})
+            return
+
+        # 广播撤回事件给会话组内所有在线用户
+        await self.channel_layer.group_send(
+            self.group_name,
+            {
+                "type": "message_recalled",
+                "message_id": message_id,
+                "recalled_by": str(self.user.id),
+                "recalled_by_name": self.user.get_display_name(),
             },
         )
 
@@ -227,6 +275,17 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             }
         )
 
+    async def message_recalled(self, event):
+        """通知消息已被撤回."""
+        await self.send_json(
+            {
+                "type": "message_recalled",
+                "message_id": event["message_id"],
+                "recalled_by": event["recalled_by"],
+                "recalled_by_name": event.get("recalled_by_name", ""),
+            }
+        )
+
     # ── 数据库操作（异步化）────────────────────────────────
 
     @database_sync_to_async
@@ -266,3 +325,55 @@ class ChatConsumer(AsyncJsonWebsocketConsumer):
             id__in=message_ids,
             is_read=False,
         ).exclude(sender=self.user).update(is_read=True)
+
+    @database_sync_to_async
+    def _mark_conversation_read(self) -> list[str]:
+        """将该会话中对方发的所有未读消息标记为已读，返回已更新的消息ID列表."""
+        from apps.chat.models import Message
+
+        qs = Message.objects.filter(
+            conversation_id=self.conversation_uuid,
+            is_read=False,
+        ).exclude(sender=self.user)
+
+        # 先获取 ID 列表再更新
+        message_ids = list(qs.values_list("id", flat=True))
+        if message_ids:
+            qs.update(is_read=True)
+        return [str(mid) for mid in message_ids]
+
+    @database_sync_to_async
+    def _recall_message(self, message_id: str) -> str | None:
+        """撤回消息：验证权限和时间窗口后标记为已撤回，返回错误信息或 None."""
+        import uuid as uuid_lib
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        from apps.chat.models import Message
+
+        try:
+            mid = uuid_lib.UUID(message_id)
+        except (ValueError, AttributeError):
+            return "消息 ID 格式无效"
+
+        try:
+            msg = Message.objects.select_related("sender").get(
+                id=mid, conversation_id=self.conversation_uuid
+            )
+        except Message.DoesNotExist:
+            return "消息不存在"
+
+        if msg.sender != self.user:
+            return "仅发送者可撤回消息"
+
+        if msg.is_recalled:
+            return "消息已被撤回"
+
+        if timezone.now() - msg.created_at > timedelta(minutes=3):
+            return "超过 3 分钟，无法撤回"
+
+        msg.is_recalled = True
+        msg.recalled_at = timezone.now()
+        msg.save(update_fields=["is_recalled", "recalled_at"])
+        return None

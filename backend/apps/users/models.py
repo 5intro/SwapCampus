@@ -63,6 +63,31 @@ class User(AbstractUser):
         verbose_name="个人简介",
     )
 
+    class VerificationStatus(models.TextChoices):
+        UNVERIFIED = "unverified", "未认证"
+        PENDING = "pending", "待审核"
+        APPROVED = "approved", "已通过"
+        REJECTED = "rejected", "已拒绝"
+
+    verification_status = models.CharField(
+        max_length=20,
+        choices=VerificationStatus.choices,
+        default=VerificationStatus.UNVERIFIED,
+        verbose_name="认证状态",
+        db_index=True,
+    )
+    student_id_card = models.ImageField(
+        upload_to="student_id_cards/%Y/%m/",
+        blank=True,
+        null=True,
+        verbose_name="学生证照片",
+    )
+    verification_note = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="审核备注",
+    )
+
     class Meta:
         db_table = "users"
         verbose_name = "用户"
@@ -147,3 +172,58 @@ class CreditRecord(BaseModel):
     def __str__(self) -> str:
         sign = "+" if self.change >= 0 else ""
         return f"{self.user.username} {sign}{self.change} ({self.reason})"
+
+
+class Notification(BaseModel):
+    """站内通知."""
+
+    class Type(models.TextChoices):
+        ORDER_UPDATE = "order_update", "订单更新"
+        NEW_ORDER = "new_order", "新订单"
+        NEW_MESSAGE = "new_message", "新消息"
+        CREDIT_CHANGE = "credit_change", "积分变动"
+        NEW_REVIEW = "new_review", "新评价"
+        SYSTEM = "system", "系统通知"
+
+    recipient = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+        verbose_name="接收人",
+    )
+    type = models.CharField(
+        max_length=20,
+        choices=Type.choices,
+        verbose_name="通知类型",
+    )
+    title = models.CharField(max_length=200, verbose_name="标题")
+    content = models.CharField(max_length=500, verbose_name="内容")
+    is_read = models.BooleanField(default=False, db_index=True, verbose_name="已读")
+    related_order = models.ForeignKey(
+        "transactions.Order",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications",
+        verbose_name="关联订单",
+    )
+    related_product = models.ForeignKey(
+        "products.Product",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="notifications",
+        verbose_name="关联商品",
+    )
+
+    class Meta:
+        db_table = "notifications"
+        verbose_name = "站内通知"
+        verbose_name_plural = verbose_name
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["recipient", "is_read", "-created_at"]),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.recipient.get_display_name()}: {self.title}"

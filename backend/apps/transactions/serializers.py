@@ -18,6 +18,7 @@ class OrderListSerializer(serializers.ModelSerializer):
     seller = serializers.SerializerMethodField()
     product = serializers.SerializerMethodField()
     status_display = serializers.CharField(source="get_status_display", read_only=True)
+    face_confirm_code = serializers.SerializerMethodField()
 
     class Meta:
         model = Order
@@ -30,8 +31,22 @@ class OrderListSerializer(serializers.ModelSerializer):
             "status_display",
             "meet_time",
             "meet_location",
+            "cancel_reason",
+            "cancel_by",
+            "face_confirm_code",
             "created_at",
         ]
+
+    def get_face_confirm_code(self, obj) -> str | None:
+        fc = getattr(obj, "face_confirm", None)
+        if fc:
+            return fc.confirm_code
+        return None
+
+    def get_cancel_by(self, obj) -> str | None:
+        if obj.cancel_by:
+            return obj.cancel_by.get_display_name()
+        return None
 
     def get_buyer(self, obj) -> dict:
         return {"id": str(obj.buyer.id), "nickname": obj.buyer.get_display_name()}

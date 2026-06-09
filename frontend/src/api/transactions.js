@@ -25,11 +25,11 @@ export function cancelOrder(id, data) {
 }
 
 export function generateConfirmCode(id) {
-  return client.post(`/transactions/orders/${id}/generate_confirm_code/`)
+  return client.get(`/transactions/orders/${id}/face_confirm/`)
 }
 
 export function verifyConfirmCode(id, data) {
-  return client.post(`/transactions/orders/${id}/verify_confirm_code/`, data)
+  return client.post(`/transactions/orders/${id}/face_confirm/`, data)
 }
 
 export function completeOrder(id) {

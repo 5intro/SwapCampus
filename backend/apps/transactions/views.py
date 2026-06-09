@@ -18,6 +18,7 @@ from apps.transactions.serializers import (
     ReviewSerializer,
 )
 from apps.transactions.services import create_face_confirm, create_review, transition_order, verify_face_confirm
+from apps.users.services import create_notification
 from core.utils import build_success_response
 
 
@@ -55,11 +56,18 @@ class OrderViewSet(
 
     def get_queryset(self) -> QuerySet:
         user = self.request.user
-        return (
+        qs = (
             Order.objects.filter(Q(buyer=user) | Q(seller=user))
-            .select_related("buyer", "seller", "product")
+            .select_related("buyer", "seller", "product", "face_confirm")
             .prefetch_related("product__images")
         )
+        # 支持按状态筛选（逗号分隔多个状态）
+        status_param = self.request.query_params.get("status", "")
+        if status_param:
+            statuses = [s.strip() for s in status_param.split(",") if s.strip()]
+            if statuses:
+                qs = qs.filter(status__in=statuses)
+        return qs
 
     def retrieve(self, request, *args, **kwargs):
         instance = self.get_object()
@@ -67,7 +75,14 @@ class OrderViewSet(
         return Response(build_success_response(serializer.data))
 
     def perform_create(self, serializer):
-        serializer.save()
+        order = serializer.save()
+        create_notification(
+            order.seller, "new_order",
+            "新订单",
+            f"{self.request.user.get_display_name()} 购买了《{order.product.title}》",
+            related_order=order, related_product=order.product,
+        )
+        return order
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -108,8 +123,9 @@ class OrderViewSet(
         order = self.get_object()
         if request.user.id != order.seller_id:
             self.permission_denied(request)
+        reason = request.data.get("reason", "")
         try:
-            order = transition_order(order, Order.Status.REJECTED, request.user)
+            order = transition_order(order, Order.Status.REJECTED, request.user, cancel_reason=reason)
         except ValueError as e:
             return self._handle_service_error(str(e))
         return Response(build_success_response({"status": order.status}))
@@ -118,13 +134,13 @@ class OrderViewSet(
     @action(detail=True, methods=["post"])
     def cancel(self, request, id=None):
         order = self.get_object()
-        cancel_reason = request.data.get("cancel_reason", "")
+        reason = request.data.get("reason", "")
         try:
             order = transition_order(
                 order,
                 Order.Status.CANCELLED,
                 request.user,
-                cancel_reason=cancel_reason,
+                cancel_reason=reason,
             )
         except ValueError as e:
             return self._handle_service_error(str(e))

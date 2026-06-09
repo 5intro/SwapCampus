@@ -22,7 +22,16 @@ const categoryId = ref('')
 const condition = ref('')
 const minPrice = ref('')
 const maxPrice = ref('')
-const sortBy = ref('-created_at')
+const tagId = ref('')
+const sortBy = ref('newest')
+
+// sortBy value mapping: frontend key → backend sort_by parameter
+const sortMap = {
+  'newest': 'newest',
+  'price_asc': 'price_asc',
+  'price_desc': 'price_desc',
+  'popular': 'popular',
+}
 
 onMounted(async () => {
   keyword.value = route.query.q || ''
@@ -47,18 +56,19 @@ async function search() {
       page: currentPage.value,
       page_size: pageSize,
       status: 'active',
-      ordering: sortBy.value,
+      sort_by: sortMap[sortBy.value],
     }
     if (keyword.value.trim()) params.search = keyword.value.trim()
     if (categoryId.value) params.category = categoryId.value
     if (condition.value) params.condition = condition.value
+    if (tagId.value) params.tag = tagId.value
     if (minPrice.value) params.price_min = minPrice.value
     if (maxPrice.value) params.price_max = maxPrice.value
 
     const res = await getProducts(params)
     const data = res.data.data || res.data
     products.value = data.results || data
-    total.value = data.pagination?.total || data.count || 0
+    total.value = res.data.pagination?.total || data.length || 0
   } catch {
     products.value = []
   } finally {
@@ -80,6 +90,7 @@ function clearFilters() {
   keyword.value = ''
   categoryId.value = ''
   condition.value = ''
+  tagId.value = ''
   minPrice.value = ''
   maxPrice.value = ''
   currentPage.value = 1
@@ -125,6 +136,18 @@ function clearFilters() {
           </div>
 
           <div class="filter-group">
+            <label>标签</label>
+            <el-select v-model="tagId" placeholder="全部标签" clearable style="width: 100%" @change="handleFilterChange">
+              <el-option
+                v-for="tag in tags"
+                :key="tag.id"
+                :label="tag.name"
+                :value="tag.id"
+              />
+            </el-select>
+          </div>
+
+          <div class="filter-group">
             <label>价格范围</label>
             <el-row :gutter="8">
               <el-col :span="12">
@@ -139,10 +162,10 @@ function clearFilters() {
           <div class="filter-group">
             <label>排序</label>
             <el-select v-model="sortBy" style="width: 100%" @change="handleFilterChange">
-              <el-option label="最新发布" value="-created_at" />
-              <el-option label="价格低→高" value="price" />
-              <el-option label="价格高→低" value="-price" />
-              <el-option label="最多浏览" value="-view_count" />
+              <el-option label="最新发布" value="newest" />
+              <el-option label="价格低→高" value="price_asc" />
+              <el-option label="价格高→低" value="price_desc" />
+              <el-option label="最多浏览" value="popular" />
             </el-select>
           </div>
         </el-card>

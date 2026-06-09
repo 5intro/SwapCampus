@@ -48,7 +48,10 @@ pip install -r requirements/dev.txt
 # 5. 数据库迁移（首次）
 python manage.py migrate
 
-# 6. 启动开发服务器
+# 6. 初始化种子数据（分类、标签）
+python manage.py seed_products
+
+# 7. 启动开发服务器
 python manage.py runserver
 ```
 
@@ -80,10 +83,10 @@ npm run dev
 
 ### 测试账号
 
-| 字段 | 值 |
-|------|-----|
-| 学号 | `20240001` |
-| 密码 | `test1234` |
+| 角色 | 用户名 | 密码 | 说明 |
+|------|--------|------|------|
+| 普通用户 | `20240001` | `test1234` | 测试学生账号 |
+| 管理员 | `administer` | `123456` | 后台管理权限 |
 
 > 创建更多测试账号：
 > ```bash
@@ -94,6 +97,13 @@ npm run dev
 > User.objects.create_user(username='20240002', password='test1234', nickname='小明', campus='校本部')
 > "
 > ```
+>
+> 初始化/重置管理员账号：
+> ```bash
+> cd backend
+> venv\Scripts\activate
+> python manage.py seed_admin
+> ```
 
 ### 需要注意
 
@@ -101,6 +111,12 @@ npm run dev
 - 后端终端保持 `runserver` 运行，**不要关闭**
 - 前端的 Vite proxy 已经配好，`/api/*` 请求自动转发，无需手动配置跨域
 - 默认使用 SQLite，数据库文件会生成在 `backend/db.sqlite3`，无需额外安装
+- 管理员后台入口：登录管理员账号后，右上角用户菜单会出现"后台管理"选项
+
+### 特色功能
+
+- **学生证认证**：非管理员用户发布商品前需上传学生证照片，经管理员审核通过后方可使用发布功能，保障校园交易安全
+- **消息撤回**：聊天消息发送后 3 分钟内可撤回，支持 WebSocket 实时同步和 REST 兜底
 
 ### 可选：Docker 一键部署
 
@@ -115,11 +131,11 @@ SwapCampus/
 ├── backend/          # Django 5 后端（API + WebSocket）
 ├── frontend/         # Vue 3 + Vite + Element Plus 前端
 │   └── src/
-│       ├── views/        # 11 个页面
+│       ├── views/        # 13 个页面（含管理员后台 + 学生证认证）
 │       ├── components/   # 9 个公共组件
-│       ├── api/          # 6 个 API 模块（含 JWT 自动刷新）
+│       ├── api/          # 7 个 API 模块（含 JWT 自动刷新 + 管理后台 + 认证审核）
 │       ├── stores/       # 3 个 Pinia Store
-│       ├── router/       # 路由 + 导航守卫
+│       ├── router/       # 路由 + 导航守卫（含管理员 + 认证路由守卫）
 │       └── utils/        # 格式化 + 校验
 ├── docker/           # Docker 配置
 └── docs/             # 课程设计文档
