@@ -169,3 +169,58 @@ class ConversationViewSet(
             build_success_response({"marked_read": count}),
             status=status.HTTP_200_OK,
         )
+
+    @extend_schema(
+        summary="撤回消息",
+        description="撤回自己在 3 分钟内发送的消息",
+    )
+    @action(
+        detail=True,
+        methods=["post"],
+        url_path=r"messages/(?P<message_id>[^/.]+)/recall",
+    )
+    def recall_message(self, request, id=None, message_id=None):
+        """POST /api/chat/conversations/{id}/messages/{message_id}/recall/ — 撤回消息."""
+        from datetime import timedelta
+
+        from django.utils import timezone
+
+        conversation = self.get_object()
+
+        try:
+            msg = conversation.messages.get(id=message_id)
+        except Message.DoesNotExist:
+            return Response(
+                {"success": False, "data": None, "error": {"code": "NOT_FOUND", "message": "消息不存在"}},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # 权限检查：仅发送者可撤回
+        if msg.sender != request.user:
+            return Response(
+                {"success": False, "data": None, "error": {"code": "FORBIDDEN", "message": "仅发送者可撤回消息"}},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # 时间窗口检查：3 分钟内可撤回
+        if timezone.now() - msg.created_at > timedelta(minutes=3):
+            return Response(
+                {"success": False, "data": None, "error": {"code": "EXPIRED", "message": "超过 3 分钟，无法撤回"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # 已撤回的消息不可再次撤回
+        if msg.is_recalled:
+            return Response(
+                {"success": False, "data": None, "error": {"code": "ALREADY_RECALLED", "message": "消息已被撤回"}},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        msg.is_recalled = True
+        msg.recalled_at = timezone.now()
+        msg.save(update_fields=["is_recalled", "recalled_at"])
+
+        return Response(
+            build_success_response(MessageSerializer(msg).data),
+            status=status.HTTP_200_OK,
+        )

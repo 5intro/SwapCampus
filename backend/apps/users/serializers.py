@@ -1,7 +1,5 @@
 """用户体系序列化器."""
 
-import re
-
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
@@ -37,9 +35,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         ]
         extra_kwargs = {
             "username": {
-                "help_text": "北京林业大学学号（8-9 位数字）",
-                "min_length": 8,
-                "max_length": 9,
+                "help_text": "用户名（全校唯一）",
             },
             "email": {"required": False},
             "nickname": {"required": False},
@@ -47,11 +43,9 @@ class RegisterSerializer(serializers.ModelSerializer):
         }
 
     def validate_username(self, value):
-        """校验学号格式：8-9 位数字."""
-        if not re.match(r"^\d{8,9}$", value):
-            raise serializers.ValidationError("学号必须为 8-9 位数字")
+        """校验用户名唯一性."""
         if User.objects.filter(username=value).exists():
-            raise serializers.ValidationError("该学号已注册")
+            raise serializers.ValidationError("该用户名已注册")
         return value
 
     def validate(self, attrs):
@@ -104,6 +98,8 @@ class UserProfileSerializer(serializers.ModelSerializer):
     """
 
     credit_level = serializers.CharField(read_only=True)
+    is_staff = serializers.BooleanField(read_only=True)
+    verification_status_display = serializers.CharField(source="get_verification_status_display", read_only=True)
 
     class Meta:
         model = User
@@ -117,6 +113,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "credit_level",
             "campus",
             "bio",
+            "is_staff",
+            "verification_status",
+            "verification_status_display",
+            "student_id_card",
+            "verification_note",
             "date_joined",
         ]
         read_only_fields = [
@@ -124,6 +125,11 @@ class UserProfileSerializer(serializers.ModelSerializer):
             "username",
             "credit_score",
             "credit_level",
+            "is_staff",
+            "verification_status",
+            "verification_status_display",
+            "student_id_card",
+            "verification_note",
             "date_joined",
         ]
 
@@ -187,3 +193,12 @@ class NotificationSerializer(serializers.ModelSerializer):
             "is_read", "related_order", "related_product", "created_at",
         ]
         read_only_fields = fields
+
+
+# ═══════════════════════════════════════════════════════════
+# 学生证认证
+# ═══════════════════════════════════════════════════════════
+class StudentIdCardUploadSerializer(serializers.Serializer):
+    """学生证上传序列化器."""
+
+    student_id_card = serializers.ImageField(required=True)

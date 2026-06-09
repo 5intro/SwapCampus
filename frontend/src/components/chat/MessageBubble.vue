@@ -1,11 +1,25 @@
 <script setup>
-import { ref } from 'vue'
+import { computed } from 'vue'
 import { formatTime } from '@/utils/format'
 
-defineProps({
+const props = defineProps({
   message: { type: Object, required: true },
   isMine: { type: Boolean, default: false },
 })
+
+const emit = defineEmits(['recall'])
+
+// 是否在 3 分钟撤回窗口内
+const canRecall = computed(() => {
+  if (!props.isMine || props.message.is_recalled) return false
+  const msgTime = new Date(props.message.created_at)
+  const now = new Date()
+  return (now - msgTime) < 3 * 60 * 1000
+})
+
+function handleRecall() {
+  emit('recall', props.message.id)
+}
 </script>
 
 <template>
@@ -18,7 +32,12 @@ defineProps({
       <div class="msg-header">
         <span class="msg-sender">{{ message.sender_name }}</span>
       </div>
-      <div class="msg-content">{{ message.content }}</div>
+      <div
+        class="msg-content"
+        :class="{ 'msg-recalled': message.is_recalled }"
+      >
+        {{ message.content }}
+      </div>
       <div class="msg-time">{{ formatTime(message.created_at) }}</div>
     </div>
   </div>
@@ -26,12 +45,19 @@ defineProps({
   <!-- 自己消息：[消息] [头像] -->
   <div v-else class="message-bubble message-mine">
     <div class="msg-body">
-      <div class="msg-content">{{ message.content }}</div>
+      <div
+        class="msg-content"
+        :class="{ 'msg-recalled': message.is_recalled }"
+      >
+        {{ message.content }}
+      </div>
       <div class="msg-meta">
+        <span v-if="canRecall" class="msg-recall-btn" @click="handleRecall">撤回</span>
         <span class="msg-time">{{ formatTime(message.created_at) }}</span>
-        <span class="msg-read-status" :class="{ 'is-read': message.is_read }">
+        <span v-if="!message.is_recalled" class="msg-read-status" :class="{ 'is-read': message.is_read }">
           {{ message.is_read ? '已读' : '未读' }}
         </span>
+        <span v-else class="msg-recalled-label">已撤回</span>
       </div>
     </div>
     <el-avatar :size="32" class="msg-avatar">
@@ -110,5 +136,36 @@ defineProps({
 
 .msg-read-status.is-read {
   color: var(--text-secondary);
+}
+
+.msg-recall-btn {
+  font-size: 11px;
+  color: #909399;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.msg-recall-btn:hover {
+  color: #e65100;
+}
+
+.msg-recalled {
+  background: #f5f5f5 !important;
+  color: #909399 !important;
+  font-style: italic;
+  border: 1px dashed #d0d0d0;
+}
+
+.message-mine .msg-recalled {
+  background: #f5f5f5 !important;
+  color: #909399 !important;
+  border: 1px dashed #d0d0d0;
+  background-image: none !important;
+}
+
+.msg-recalled-label {
+  font-size: 11px;
+  color: #909399;
+  font-style: italic;
 }
 </style>

@@ -73,21 +73,21 @@ SwapCampus/
 │   │   │   ├── services.py         # 订单状态机（6状态 8+转换）、评价逻辑、面交确认
 │   │   │   ├── admin.py            # OrderAdmin, ReviewAdmin, FaceConfirmAdmin
 │   │   │   └── tests/              # 25 个测试用例（订单/状态机/面交/评价/积分联动）
-│   │   ├── chat/                   # M5 站内通讯（✅ 后端A 已实现）
+│   │   ├── chat/                   # M5 站内通讯（✅ 后端A 已实现 + 消息撤回）
 │   │   │   ├── apps.py             # AppConfig
-│   │   │   ├── models.py           # Conversation, Message
-│   │   │   ├── consumers.py        # ChatConsumer（WebSocket 收发/read_conversation/已读/在线状态）
-│   │   │   ├── serializers.py     # ConversationList/Detail/Create, Message
-│   │   │   ├── views.py            # ConversationViewSet（CRUD/消息/已读）
-│   │   │   ├── urls.py             # API 路由（conversations/.../messages|read）
+│   │   │   ├── models.py           # Conversation, Message（含 is_recalled, recalled_at 撤回字段）
+│   │   │   ├── consumers.py        # ChatConsumer（WebSocket 收发/已读/在线/撤回消息）
+│   │   │   ├── serializers.py     # ConversationList/Detail/Create, Message（撤回内容转换）
+│   │   │   ├── views.py            # ConversationViewSet（CRUD/消息/已读/撤回消息 3 分钟窗口）
+│   │   │   ├── urls.py             # API 路由（conversations/.../messages|read|recall）
 │   │   │   ├── admin.py            # Django Admin 定制
 │   │   │   └── tests/              # 14 个测试用例（会话/消息/已读/权限）
-│   │   └── admin_panel/            # M6 Django Admin 定制（✅ 后端B 已实现）
+│   │   └── admin_panel/            # M6 后台管理（✅ 后端B 已实现 + 管理 API 扩展）
 │   │       ├── apps.py             # AppConfig
-│   │       ├── urls.py             # Dashboard API 路由
+│   │       ├── urls.py             # Dashboard + Products + Reports + Users API 路由
 │   │       ├── admin.py            # 跨模块 Admin 增强（Product/User/Order 批量操作 + CreditRecordInline）
 │   │       ├── actions.py          # 批量操作实现（approve_products/hide_products/ban_users/cancel_orders_admin）
-│   │       ├── views.py            # DashboardView（total_users/active_products/pending_orders/completed_orders/recent_registrations）
+│   │       ├── views.py            # DashboardView + AdminProductListView + AdminReportListView + AdminUserListView
 │   │       └── tests/              # 4 个测试用例（Dashboard/批量操作）
 │   ├── core/                       # 共享基础设施
 │   │   ├── models.py               # BaseModel（UUID pk, created_at, updated_at）
@@ -116,7 +116,8 @@ SwapCampus/
 │   │   │   ├── MyProducts.vue      # 我的商品
 │   │   │   ├── MyOrders.vue        # 我的订单
 │   │   │   ├── LoginView.vue       # 登录
-│   │   │   └── RegisterView.vue    # 注册
+│   │   │   ├── RegisterView.vue    # 注册
+│   │   │   └── AdminDashboardView.vue  # 管理员后台（数据看板/商品审核/举报处理/用户管理）
 │   │   ├── components/             # 可复用组件
 │   │   │   ├── layout/             # 布局组件（Navbar, Footer, Sidebar）
 │   │   │   ├── product/            # 商品卡片、商品列表
@@ -132,8 +133,9 @@ SwapCampus/
 │   │   │   ├── auth.js             # 认证接口
 │   │   │   ├── products.js         # 商品接口
 │   │   │   ├── transactions.js     # 交易接口
-│   │   │   ├── chat.js             # 聊天 REST 接口
-│   │   │   └── users.js            # 用户接口
+│   │   │   ├── chat.js             # 聊天 REST 接口（含 recallMessage 撤回）
+│   │   │   ├── users.js            # 用户接口
+│   │   │   └── admin.js            # 管理后台接口（仪表盘/商品/举报/用户）
 │   │   ├── router/
 │   │   │   └── index.js            # Vue Router 路由配置
 │   │   ├── utils/                  # 工具函数
@@ -388,9 +390,11 @@ chore: 杂项          chore: update docker-compose.yml
 - UUID 由应用层生成（`uuid.uuid4`），不依赖数据库
 
 ### 用户模型
-- 自定义 `User` 扩展 `AbstractUser`，`username` 存储学号（8-9 位数字，正则校验 `^\d{8,9}$`）
+- 自定义 `User` 扩展 `AbstractUser`，`username` 存储用户名（不再限制长度和格式）
 - `credit_score` 初始 100 分，通过 `CreditRecord` 记录每次变更
 - 信用等级按分数自动计算：`excellent(≥150)` / `good(≥100)` / `fair(≥60)` / `poor(<60)`
+- **学生证认证**：`verification_status` 字段控制发布权限（unverified → pending → approved/rejected），非管理员用户必须上传学生证并通过审核后才能发布商品
+- `student_id_card` 存储学生证照片，`verification_note` 记录管理员审核备注
 
 ### 信用分并发安全
 - `services.add_credit_record()` 使用 `select_for_update` 行锁 + `@transaction.atomic`
@@ -429,6 +433,8 @@ chore: 杂项          chore: update docker-compose.yml
 | GET | `/{id}/` | 用户详情（公开信息） | 可选 |
 | GET | `/me/` | 当前用户完整信息 | JWT |
 | PATCH | `/me/` | 更新当前用户信息 | JWT |
+| POST | `/me/verify/` | 上传学生证（状态 → pending） | JWT |
+| GET | `/me/verify/` | 查询认证状态 | JWT |
 | GET | `/{id}/credit-records/` | 积分变更记录 | JWT |
 
 ### 站内通讯（`/api/chat/`）
@@ -441,6 +447,20 @@ chore: 杂项          chore: update docker-compose.yml
 | GET | `/conversations/{id}/messages/` | 分页历史消息 | JWT |
 | POST | `/conversations/{id}/messages/` | 发送消息（REST） | JWT |
 | POST | `/conversations/{id}/read/` | 标记已读 | JWT |
+| POST | `/conversations/{id}/messages/{msg_id}/recall/` | 撤回消息（3 分钟内） | JWT(发送者) |
+
+### 商品模块（`/api/products/`）
+
+| 方法 | 路径 | 说明 | 鉴权 |
+|------|------|------|------|
+| GET | `/` | 商品列表（支持筛选 `?seller=&category=&status=&sort_by=`） | 可选 |
+| POST | `/` | 发布商品 | JWT |
+| GET | `/{id}/` | 商品详情 | 可选 |
+| PATCH | `/{id}/` | 更新商品（含 status 下架） | JWT(卖家) |
+| DELETE | `/{id}/` | 删除商品 | JWT(卖家) |
+| GET | `/my/` | 我的商品 | JWT |
+| GET | `/categories/` | 分类列表 | 无 |
+| GET | `/tags/` | 标签列表 | 无 |
 
 ### 商品模块（`/api/products/`）
 
@@ -472,6 +492,22 @@ chore: 杂项          chore: update docker-compose.yml
 | `messages_read` | 服务端→客户端 | 通知已读（携带 message_ids） |
 | `typing` | 双向 | 输入状态 |
 | `user_status` | 服务端→客户端 | 在线/离线状态 |
+| `recall_message` | 客户端→服务端 | 撤回消息（3 分钟内） |
+| `message_recalled` | 服务端→客户端 | 通知消息已被撤回 |
+
+### 后台管理（`/api/admin/`）
+
+| 方法 | 路径 | 说明 | 鉴权 |
+|------|------|------|------|
+| GET | `/dashboard/` | 管理仪表盘（用户/商品/订单/举报统计） | JWT(staff) |
+| GET | `/products/` | 商品列表（支持筛选、搜索、分页） | JWT(staff) |
+| POST | `/products/{id}/{action}/` | 商品操作（approve/hide/delete） | JWT(staff) |
+| GET | `/reports/` | 举报列表（支持状态筛选） | JWT(staff) |
+| POST | `/reports/{id}/handle/` | 处理举报（resolve/dismiss） | JWT(staff) |
+| GET | `/users/` | 用户列表（支持搜索、分页） | JWT(staff) |
+| POST | `/users/{id}/manage/` | 管理用户（ban/unban） | JWT(staff) |
+| GET | `/verifications/` | 学生证认证列表（支持状态筛选） | JWT(staff) |
+| POST | `/verifications/{id}/review/` | 审核学生证（approve/reject） | JWT(staff) |
 
 ---
 
@@ -659,6 +695,7 @@ waitress-serve --port=8000 config.wsgi:application
 
 ## 更新日志
 
+
 ### 2026-06-06 — Bug 修复与完善
 
 **种子数据**
@@ -689,3 +726,54 @@ waitress-serve --port=8000 config.wsgi:application
 
 > 本文件是项目的操作准则，所有 AI 辅助操作、团队协作、代码提交均以此为准。
 > 如有与课程任务书冲突之处，以课程任务书为准。
+
+### 2026-06-09 — 学生证上传 URL 修复
+
+**问题**：学生证上传时前端显示「网络错误」，上传请求失败。
+
+**根因**：后端 `UserViewSet` 中 `verify` action 未指定 `url_path`，DRF SimpleRouter 将其路由为 `POST /api/users/verify/`，而前端调用的是 `POST /api/users/me/verify/`。URL 不匹配导致 Django 返回 404 HTML 页面，axios 拦截器解析不到 `response.data.detail` 字段，回退显示泛化的「网络错误」提示。
+
+**修复**：`backend/apps/users/views.py` 第 169 行，`@action(detail=False, methods=["post"], ...)` → `@action(detail=False, methods=["post"], url_path="me/verify", ...)`，使后端 URL 与前端调用路径一致。`@verify.mapping.get` 会自动继承同一 `url_path`，因此 GET 查询认证状态也同步修复为 `/api/users/me/verify/`。
+
+### 2026-06-09 — 学生证认证 + 用户名限制移除
+
+**用户名限制移除**
+- 后端 `RegisterSerializer` 不再限制 username 为 8-9 位数字（移除 `validate_username` 正则校验和 `min_length`/`max_length` 约束）
+- 前端 `validators.js` 的 `studentIdRule` 移除 pattern 正则，仅保留非空校验
+- 前端 `RegisterView.vue` 移除 `maxlength="9"`，标签由"学号"改为"用户名"
+
+**学生证认证审核**
+- 后端 `User` 模型新增 `verification_status`（unverified/pending/approved/rejected）、`student_id_card`（ImageField）、`verification_note` 字段
+- 后端 `UserProfileSerializer` 新增 `verification_status`、`student_id_card`、`verification_note` 字段
+- 后端新增 `StudentIdCardUploadSerializer` 用于上传学生证
+- 后端 `UserViewSet` 新增 `verify` action：POST 上传学生证（状态 → pending）、GET 查询认证状态
+- 后端 `AdminVerificationListView`：GET 待审核列表 + POST 通过/拒绝（附备注）
+- 后端 `ProductViewSet.create` 新增认证检查：非管理员且未通过认证 → 返回 403
+- 前端新增 `VerifyStudentView.vue`：学生证上传页面，展示认证状态（未认证/审核中/已通过/已拒绝）
+- 前端 `router/index.js` 新增 `/verify-student` 路由 + `/publish` 路由增加 `requiresVerification` meta + 路由守卫检查
+- 前端 `AdminDashboardView.vue` 新增"学生证审核"Tab（列表 + 通过/拒绝操作）
+- 前端 `ProfileView.vue` 新增认证状态标签展示
+- 前端 `api/users.js` 新增 `uploadStudentIdCard` 和 `getVerificationStatus`
+- 前端 `api/admin.js` 新增 `getVerifications` 和 `reviewVerification`
+
+### 2026-06-09 — 管理员角色 + 消息撤回
+
+**管理员角色**
+- 新增 `python manage.py seed_admin` 命令，创建默认管理员账号：`administer` / `123456`
+- 后端 `UserProfileSerializer` 新增 `is_staff` 字段，前端可据此判断管理员身份
+- 后端 `admin_panel/views.py` 新增 `AdminProductListView`（商品审核/隐藏/删除）、`AdminReportListView`（举报处理/驳回）、`AdminUserListView`（用户封禁/解封）
+- 后端 `admin_panel/urls.py` 新增对应 API 路由
+- 前端新增 `views/AdminDashboardView.vue`：数据看板（4 个统计卡片 + 最近注册用户）、商品管理（搜索/筛选/审核/隐藏/删除）、举报处理（待处理/已处理/驳回列表）、用户管理（搜索/封禁/解封）
+- 前端新增 `api/admin.js`：仪表盘、商品、举报、用户的完整 API 调用模块
+- 前端 `router/index.js` 新增 `/admin` 路由 + `requiresAdmin` 守卫（仅 `is_staff` 用户可访问）
+- 前端 `Navbar.vue` 用户菜单新增"后台管理"入口（仅管理员可见）
+
+**消息撤回**
+- `Message` 模型新增 `is_recalled`（BooleanField）和 `recalled_at`（DateTimeField），创建迁移 `chat/0003`
+- `MessageSerializer` 的 `content` 改为 `SerializerMethodField`：已撤回消息返回"该消息已被撤回"
+- `ConversationViewSet` 新增 `recall_message` action：验证发送者权限 + 3 分钟时间窗口
+- `ChatConsumer` 新增 `recall_message` WebSocket 消息类型 + `message_recalled` 事件广播
+- 前端 `MessageBubble.vue`：自己消息 3 分钟内显示"撤回"按钮，已撤回消息灰色虚线样式
+- 前端 `ChatView.vue` 处理 `handleRecallMessage`（优先 WebSocket，REST 兜底）和 `message_recalled` WebSocket 事件
+- 前端 `api/chat.js` 新增 `recallMessage` API 函数
+

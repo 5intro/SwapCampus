@@ -89,6 +89,17 @@ class Message(BaseModel):
         db_index=True,
         verbose_name="已读状态",
     )
+    is_recalled = models.BooleanField(
+        default=False,
+        db_index=True,
+        verbose_name="已撤回",
+        help_text="消息是否已被发送者撤回",
+    )
+    recalled_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="撤回时间",
+    )
 
     class Meta:
         db_table = "messages"

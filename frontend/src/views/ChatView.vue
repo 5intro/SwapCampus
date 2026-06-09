@@ -3,9 +3,9 @@ import { ref, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
-import { getConversation, markRead } from '@/api/chat'
+import { getConversation, markRead, recallMessage } from '@/api/chat'
 import ChatBox from '@/components/chat/ChatBox.vue'
-import { ElAvatar } from 'element-plus'
+import { ElAvatar, ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -80,6 +80,14 @@ function connectWebSocket() {
             }
           })
         }
+      } else if (data.type === 'message_recalled') {
+        // 消息被撤回，更新消息状态
+        const msg = messages.value.find(m => m.id === data.message_id)
+        if (msg) {
+          msg.is_recalled = true
+          msg.content = '该消息已被撤回'
+          msg.recalled_at = new Date().toISOString()
+        }
       }
     } catch { /* ignore malformed messages */ }
   }
@@ -114,6 +122,28 @@ function handleMessageSent() {
   loadConversation()
 }
 
+async function handleRecallMessage(messageId) {
+  // 优先通过 WebSocket 发送撤回请求（实时同步）
+  if (ws && ws.readyState === WebSocket.OPEN) {
+    ws.send(JSON.stringify({ type: 'recall_message', message_id: messageId }))
+    return
+  }
+  // WebSocket 不可用时通过 REST 撤回
+  try {
+    await recallMessage(route.params.id, messageId)
+    // 更新本地消息状态
+    const msg = messages.value.find(m => m.id === messageId)
+    if (msg) {
+      msg.is_recalled = true
+      msg.content = '该消息已被撤回'
+      msg.recalled_at = new Date().toISOString()
+    }
+  } catch (e) {
+    const errMsg = e?.response?.data?.error?.message || '撤回失败'
+    ElMessage.error(errMsg)
+  }
+}
+
 function getTitle() {
   return conversation.value?.title || '聊天'
 }
@@ -139,6 +169,7 @@ function goBack() {
         :messages="messages"
         :current-user-id="auth.user?.id || ''"
         @message-sent="handleMessageSent"
+        @recall-message="handleRecallMessage"
       />
     </div>
 

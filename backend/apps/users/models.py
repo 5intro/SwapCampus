@@ -63,6 +63,31 @@ class User(AbstractUser):
         verbose_name="个人简介",
     )
 
+    class VerificationStatus(models.TextChoices):
+        UNVERIFIED = "unverified", "未认证"
+        PENDING = "pending", "待审核"
+        APPROVED = "approved", "已通过"
+        REJECTED = "rejected", "已拒绝"
+
+    verification_status = models.CharField(
+        max_length=20,
+        choices=VerificationStatus.choices,
+        default=VerificationStatus.UNVERIFIED,
+        verbose_name="认证状态",
+        db_index=True,
+    )
+    student_id_card = models.ImageField(
+        upload_to="student_id_cards/%Y/%m/",
+        blank=True,
+        null=True,
+        verbose_name="学生证照片",
+    )
+    verification_note = models.CharField(
+        max_length=200,
+        blank=True,
+        verbose_name="审核备注",
+    )
+
     class Meta:
         db_table = "users"
         verbose_name = "用户"

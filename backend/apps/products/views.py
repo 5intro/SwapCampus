@@ -1,5 +1,6 @@
 """商品模块 API 视图."""
 
+from django.contrib.auth import get_user_model
 from django.db.models import F, QuerySet
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import mixins, status, viewsets
@@ -24,6 +25,8 @@ from apps.products.serializers import (
 from apps.products.services import change_product_status
 from core.permissions import IsOwner
 from core.utils import build_success_response
+
+User = get_user_model()
 
 
 @extend_schema_view(
@@ -98,6 +101,16 @@ class ProductViewSet(
         return Response(build_success_response(serializer.data))
 
     def create(self, request, *args, **kwargs):
+        # 非管理员用户需完成学生证认证后才能发布商品
+        if not request.user.is_staff and request.user.verification_status != User.VerificationStatus.APPROVED:
+            return Response(
+                {
+                    "success": False,
+                    "data": None,
+                    "error": {"code": "NOT_VERIFIED", "message": "请先完成学生证认证后再发布商品"},
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         self.perform_create(serializer)

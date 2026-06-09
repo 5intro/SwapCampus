@@ -129,9 +129,33 @@ function cancelEdit() {
               :score="profileUser.credit_score"
               :level="profileUser.credit_level"
             />
+            <el-tag
+              v-if="profileUser.verification_status === 'approved'"
+              type="success"
+              size="small"
+              effect="plain"
+            >已认证</el-tag>
+            <el-tag
+              v-else-if="profileUser.verification_status === 'pending'"
+              type="warning"
+              size="small"
+              effect="plain"
+            >认证审核中</el-tag>
+            <el-tag
+              v-else-if="profileUser.verification_status === 'rejected'"
+              type="danger"
+              size="small"
+              effect="plain"
+            >认证未通过</el-tag>
+            <el-tag
+              v-else-if="isOwn"
+              type="info"
+              size="small"
+              effect="plain"
+            >未认证</el-tag>
           </div>
           <p class="profile-meta">
-            学号 {{ profileUser.username }}
+            用户名 {{ profileUser.username }}
             <span v-if="profileUser.campus"> - {{ profileUser.campus }}</span>
             <span> - 加入于 {{ formatDateTime(profileUser.date_joined) }}</span>
           </p>

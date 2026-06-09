@@ -78,13 +78,6 @@ class TestRegister:
         response = api_client.post(url, user_data)
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_register_invalid_student_id(self, api_client, user_data, db):
-        """非法学号格式应返回 400."""
-        url = reverse("user-register")
-        user_data["username"] = "abc123"  # 非 8 位数字
-        response = api_client.post(url, user_data)
-        assert response.status_code == status.HTTP_400_BAD_REQUEST
-
     def test_register_password_mismatch(self, api_client, user_data, db):
         """两次密码不一致应返回 400."""
         url = reverse("user-register")

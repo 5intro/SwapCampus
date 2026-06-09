@@ -112,6 +112,7 @@ function logout() {
               </el-avatar>
               <span class="nav-nickname">{{ auth.user?.nickname || auth.user?.username }}</span>
             </template>
+            <el-menu-item v-if="auth.user?.is_staff" index="/admin">后台管理</el-menu-item>
             <el-menu-item index="/profile">个人主页</el-menu-item>
             <el-menu-item index="/my-products">我的商品</el-menu-item>
             <el-menu-item index="/my-orders">我的订单</el-menu-item>

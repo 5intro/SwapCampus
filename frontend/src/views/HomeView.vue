@@ -69,7 +69,7 @@ onMounted(async () => {
           </div>
           <div class="hero-stat">
             <span class="stat-number">实名</span>
-            <span class="stat-label">学号认证</span>
+            <span class="stat-label">身份认证</span>
           </div>
           <div class="hero-stat">
             <span class="stat-number">面交</span>

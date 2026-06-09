@@ -23,3 +23,7 @@ export function sendMessage(id, data) {
 export function markRead(id) {
   return client.post(`/chat/conversations/${id}/read/`)
 }
+
+export function recallMessage(conversationId, messageId) {
+  return client.post(`/chat/conversations/${conversationId}/messages/${messageId}/recall/`)
+}

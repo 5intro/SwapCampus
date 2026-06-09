@@ -16,6 +16,7 @@ from apps.users.serializers import (
     CreditRecordSerializer,
     NotificationSerializer,
     RegisterSerializer,
+    StudentIdCardUploadSerializer,
     UserProfileSerializer,
     UserSerializer,
     UserUpdateSerializer,
@@ -160,6 +161,32 @@ class UserViewSet(
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(build_success_response(serializer.data))
+
+    @extend_schema(
+        summary="学生证认证",
+        description="上传学生证照片，提交认证审核（状态变为待审核）",
+    )
+    @action(detail=False, methods=["post"], url_path="me/verify", permission_classes=[IsAuthenticated])
+    def verify(self, request):
+        """POST /api/users/me/verify/ — 上传学生证."""
+        serializer = StudentIdCardUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        request.user.student_id_card = serializer.validated_data["student_id_card"]
+        request.user.verification_status = "pending"
+        request.user.verification_note = ""
+        request.user.save(update_fields=["student_id_card", "verification_status", "verification_note"])
+        profile = UserProfileSerializer(request.user, context={"request": request})
+        return Response(build_success_response(profile.data))
+
+    @extend_schema(
+        summary="查询认证状态",
+        description="获取当前用户的认证状态和审核备注",
+    )
+    @verify.mapping.get
+    def get_verification_status(self, request):
+        """GET /api/users/me/verify/ — 查询认证状态."""
+        profile = UserProfileSerializer(request.user, context={"request": request})
+        return Response(build_success_response(profile.data))
 
     @extend_schema(
         summary="用户信用积分记录",
